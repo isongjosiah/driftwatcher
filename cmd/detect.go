@@ -4,6 +4,7 @@ import (
 	"context"
 	"drift-watcher/config"
 	"drift-watcher/pkg/provider/aws"
+	"drift-watcher/pkg/terraform"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -68,6 +69,19 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 		}
 		os.Exit(1)
 	}
+
+	parsedContent, err := terraform.ParseTerraformFile(d.tfConfigPath)
+	if err != nil {
+		slog.Error("Failed to parse terraform configuratio file", "error", err.Error())
+		os.Exit(1)
+	}
+	resources, err := parsedContent.GetResources()
+	if err != nil {
+		slog.Error("Failed to retrieve resources information from parsed configuration file", "error", err.Error())
+		os.Exit(1)
+	}
+
+	fmt.Printf("parsed content resources is %#v", resources)
 
 	switch d.Provider {
 	case "aws":
