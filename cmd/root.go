@@ -14,18 +14,15 @@ import (
 
 var Config config.Config
 
-type AWSConfig struct {
-	CredentialPath  string
-	ConfigPath      string
-	defaultLocation bool
-}
-
 // CheckAWSConfig checks for the presence of AWS configuration files
 // or environment variables that point to them.
 // It returns true if a configuration file is found, along with the path to the first one found.
 // It logs debug messages indicating where it's looking and what it finds.
-func CheckAWSConfig() (AWSConfig, error) {
-	configDetail := AWSConfig{}
+func CheckAWSConfig() (config.AWSConfig, error) {
+	configDetail := config.AWSConfig{
+		CredentialPath: []string{},
+		ConfigPath:     []string{},
+	}
 
 	// attempt to load from the default location
 	homeDir, err := os.UserHomeDir()
@@ -48,7 +45,7 @@ func CheckAWSConfig() (AWSConfig, error) {
 		}
 	} else {
 		// default credential found
-		configDetail.CredentialPath = defaultCredsFile
+		configDetail.CredentialPath = append(configDetail.CredentialPath, defaultCredsFile)
 	}
 
 	// check for default profile file
@@ -62,12 +59,7 @@ func CheckAWSConfig() (AWSConfig, error) {
 		}
 	} else {
 		// default credential found
-		configDetail.ConfigPath = defaultCredsFile
-	}
-
-	// If we already have both path from default return
-	if configDetail.ConfigPath != "" && configDetail.CredentialPath != "" {
-		return configDetail, nil
+		configDetail.ConfigPath = append(configDetail.ConfigPath, defaultConfigFiles)
 	}
 
 	// NOTE: we want to handle for situations where the user has set a custom path in their environment variable
@@ -84,12 +76,8 @@ func CheckAWSConfig() (AWSConfig, error) {
 			} else {
 				slog.Error("Error checking file specified by AWS_SHARED_CREDENTIALS_FILE", "path", credsFileEnv, "error", err)
 			}
-			if configDetail.CredentialPath == "" {
-				return configDetail, err
-			}
 		} else {
-			configDetail.CredentialPath = credsFileEnv
-			configDetail.defaultLocation = false
+			configDetail.CredentialPath = append(configDetail.CredentialPath, credsFileEnv)
 			slog.Info("AWS credentials file found via AWS_SHARED_CREDENTIALS_FILE", "path", credsFileEnv)
 		}
 	}
@@ -102,14 +90,14 @@ func CheckAWSConfig() (AWSConfig, error) {
 			} else {
 				slog.Error("Error checking file specified by AWS_CONFG_FILE", "path", credsFileEnv, "error", err)
 			}
-			if configDetail.ConfigPath == "" {
-				return configDetail, err
-			}
 		} else {
-			configDetail.ConfigPath = configFileEnv
-			configDetail.defaultLocation = false
+			configDetail.ConfigPath = append(configDetail.ConfigPath, configFileEnv)
 			slog.Info("AWS config file found via AWS_CONFIG_FILE", "path", configFileEnv)
 		}
+	}
+
+	if len(configDetail.ConfigPath) == 0 || len(configDetail.CredentialPath) == 0 {
+		return configDetail, fmt.Errorf("Either configuration or credential path is missing")
 	}
 
 	return configDetail, nil
@@ -131,6 +119,7 @@ var rootCmd = &cobra.Command{
 	Version:       "1.0", // TODO: make dynamic
 	SilenceErrors: true,
 	SilenceUsage:  true,
+	Run:           func(cmd *cobra.Command, args []string) {},
 }
 
 func Execute(ctx context.Context) {
@@ -184,6 +173,5 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&Config.LogLevel, "log-level", "info", "log level (debug, info, trace, warn, error)")
 	rootCmd.Flags().BoolP("version", "v", false, "Get the version of the DriftWatcher CLI")
 
-	rootCmd.AddCommand(newDetectCmd(&Config).cmd)
 	rootCmd.AddCommand(newConfigCmd().cmd)
 }
