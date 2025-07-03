@@ -24,7 +24,13 @@ type detectCmd struct {
 
 func newDetectCmd(cfg *config.Config) *detectCmd {
 	dc := &detectCmd{
-		cfg: cfg,
+		tfConfigPath:      "",
+		AttributesToTrack: []string{},
+		Provider:          "",
+		Resource:          "",
+		awsConfig:         config.AWSConfig{},
+		cmd:               &cobra.Command{},
+		cfg:               cfg,
 	}
 	dc.cmd = &cobra.Command{
 		Use:     "detect",
@@ -33,6 +39,22 @@ func newDetectCmd(cfg *config.Config) *detectCmd {
 		Long:    "Hello world",
 		RunE:    dc.Run,
 	}
+
+	var profileName string
+	dc.cmd.Flags().StringVar(&dc.tfConfigPath, "configfile", "", "Path to the terraform configuration file")
+	dc.cmd.Flags().StringArrayVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
+	dc.cmd.Flags().StringVar(&profileName, "aws-profile", "default", "Attributes to check for drift")
+	dc.cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
+	dc.cmd.Flags().StringVar(&dc.Resource, "resource", "ec2", "Resource to check for drift")
+
+	config, err := CheckAWSConfig()
+	if err != nil {
+		slog.Error("Failed to parse aws credentials")
+		os.Exit(1)
+	}
+
+	config.ProfileName = profileName
+	dc.cfg.Profile.AWSConfig = &config
 
 	return dc
 }
@@ -56,12 +78,12 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 	case "aws":
 		awsProvider, err := aws.NewAWSProvider(d.cfg)
 		if err != nil {
-			slog.Error("Failed to setup aws provider")
+			slog.Error("Failed to setup aws provide", "error", err.Error())
 			os.Exit(1)
 		}
 		instance, err := awsProvider.ResourceMetadata(context.Background(), d.Resource, d.AttributesToTrack, map[string]string{})
 		if err != nil {
-			slog.Error("Failed to setup aws provider")
+			slog.Error("Failed to setup aws provider", "error", err.Error())
 		}
 		print(instance)
 	default:
@@ -69,29 +91,4 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 		os.Exit(1)
 	}
 	return nil
-}
-
-func init() {
-	fmt.Println("running init for detect")
-	dc := newDetectCmd(&Config)
-
-	var profileName string
-	var resource string
-	dc.cmd.Flags().StringVar(&dc.tfConfigPath, "configfile", "", "Path to the terraform configuration file")
-	dc.cmd.Flags().StringArrayVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
-	dc.cmd.Flags().StringVar(&profileName, "aws-profile", "default", "Attributes to check for drift")
-	dc.cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
-	dc.cmd.Flags().StringVar(&resource, "resource", "aws", "Resource to check for drift")
-
-	awsConfig, err := CheckAWSConfig()
-	if err != nil {
-		slog.Error("Invalid aws configuration setup. Please confirm that the default directory ~/.aws exists or set environment variables to define custom path")
-		os.Exit(1)
-	}
-
-	awsConfig.ProfileName = profileName
-	dc.cfg.Profile.AWSConfig = &awsConfig
-
-	fmt.Printf("%#v\n", dc.cmd.Flag("aws-profile"))
-	rootCmd.AddCommand(dc.cmd)
 }

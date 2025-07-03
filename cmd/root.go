@@ -128,9 +128,6 @@ func Execute(ctx context.Context) {
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		errString := err.Error()
 
-		// isLoginRequiredError := errString == validators.ErrAPIKeyNotConfigured.Error() || errString == validators.ErrDeviceNameNotConfigured.Error()
-		// projectNameFlag := rootCmd.Flag("project-name").Value.String()
-
 		switch {
 		default:
 			fmt.Println(errString)
@@ -173,5 +170,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&Config.LogLevel, "log-level", "info", "log level (debug, info, trace, warn, error)")
 	rootCmd.Flags().BoolP("version", "v", false, "Get the version of the DriftWatcher CLI")
 
+	rootCmd.AddCommand(newDetectCmd(&Config).cmd)
 	rootCmd.AddCommand(newConfigCmd().cmd)
 }
