@@ -17,18 +17,23 @@ type detectCmd struct {
 	AttributesToTrack []string
 	Provider          string
 	Resource          string
-	awsConfig         config.AWSConfig
 	cmd               *cobra.Command
 	cfg               *config.Config
 }
 
 func newDetectCmd(cfg *config.Config) *detectCmd {
+	config, err := CheckAWSConfig()
+	if err != nil {
+		slog.Error("Failed to parse aws credentials")
+		os.Exit(1)
+	}
+	cfg.Profile.AWSConfig = &config
+
 	dc := &detectCmd{
 		tfConfigPath:      "",
 		AttributesToTrack: []string{},
 		Provider:          "",
 		Resource:          "",
-		awsConfig:         config.AWSConfig{},
 		cmd:               &cobra.Command{},
 		cfg:               cfg,
 	}
@@ -40,21 +45,11 @@ func newDetectCmd(cfg *config.Config) *detectCmd {
 		RunE:    dc.Run,
 	}
 
-	var profileName string
 	dc.cmd.Flags().StringVar(&dc.tfConfigPath, "configfile", "", "Path to the terraform configuration file")
 	dc.cmd.Flags().StringArrayVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
-	dc.cmd.Flags().StringVar(&profileName, "aws-profile", "default", "Attributes to check for drift")
+	dc.cmd.Flags().StringVar(&dc.cfg.Profile.AWSConfig.ProfileName, "awsprofile", "default", "Attributes to check for drift")
 	dc.cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
 	dc.cmd.Flags().StringVar(&dc.Resource, "resource", "ec2", "Resource to check for drift")
-
-	config, err := CheckAWSConfig()
-	if err != nil {
-		slog.Error("Failed to parse aws credentials")
-		os.Exit(1)
-	}
-
-	config.ProfileName = profileName
-	dc.cfg.Profile.AWSConfig = &config
 
 	return dc
 }
@@ -81,11 +76,14 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 			slog.Error("Failed to setup aws provide", "error", err.Error())
 			os.Exit(1)
 		}
-		instance, err := awsProvider.ResourceMetadata(context.Background(), d.Resource, d.AttributesToTrack, map[string]string{})
+		filter := map[string]string{
+			"instance-id": "i-08af3a1b1a9500f2d",
+		}
+		instance, err := awsProvider.ResourceMetadata(context.Background(), d.Resource, d.AttributesToTrack, filter)
 		if err != nil {
 			slog.Error("Failed to setup aws provider", "error", err.Error())
 		}
-		print(instance)
+		fmt.Printf("%#v", instance)
 	default:
 		slog.Error(d.Provider + " provider is not supported")
 		os.Exit(1)

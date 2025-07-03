@@ -48,7 +48,7 @@ func (aws AWSProvider) ResourceMetadata(ctx context.Context, resource string, at
 			return nil, err
 		}
 		// TODO: parse and return map[string]string
-		_ = instance
+		fmt.Printf("%#v", instance)
 		return nil, nil
 	default:
 		return nil, fmt.Errorf("%s resource not yet supported for AWS provider", resource)
