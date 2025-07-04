@@ -1,0 +1,228 @@
+{
+    "Reservations": [
+        {
+            "ReservationId": "r-05d6ddcb5f0b590f5",
+            "OwnerId": "337909770571",
+            "RequesterId": "178953610797",
+            "Groups": [],
+            "Instances": [
+                {
+                    "Architecture": "x86_64",
+                    "BlockDeviceMappings": [
+                        {
+                            "DeviceName": "/dev/xvda",
+                            "Ebs": {
+                                "AttachTime": "2025-06-12T22:12:58+00:00",
+                                "DeleteOnTermination": true,
+                                "Status": "attached",
+                                "VolumeId": "vol-01ae14df955d2579d"
+                            }
+                        }
+                    ],
+                    "ClientToken": "80665d98-d031-8121-d19f-789c2e7d328f",
+                    "EbsOptimized": false,
+                    "EnaSupport": true,
+                    "Hypervisor": "xen",
+                    "IamInstanceProfile": {
+                        "Arn": "arn:aws:iam::337909770571:instance-profile/ecsInstanceRole",
+                        "Id": "AIPAU5LH55FF4RXVI7AGY"
+                    },
+                    "NetworkInterfaces": [
+                        {
+                            "Association": {
+                                "IpOwnerId": "amazon",
+                                "PublicDnsName": "ec2-18-201-78-102.eu-west-1.compute.amazonaws.com",
+                                "PublicIp": "18.201.78.102"
+                            },
+                            "Attachment": {
+                                "AttachTime": "2025-06-12T22:12:57+00:00",
+                                "AttachmentId": "eni-attach-0ca6e5581903a69a3",
+                                "DeleteOnTermination": true,
+                                "DeviceIndex": 0,
+                                "Status": "attached",
+                                "NetworkCardIndex": 0
+                            },
+                            "Description": "",
+                            "Groups": [
+                                {
+                                    "GroupId": "sg-006da7e86e7d82d50",
+                                    "GroupName": "HiyrProdClusterSG"
+                                }
+                            ],
+                            "Ipv6Addresses": [],
+                            "MacAddress": "06:03:64:da:f8:bf",
+                            "NetworkInterfaceId": "eni-0ae0085bc971fa2f6",
+                            "OwnerId": "337909770571",
+                            "PrivateDnsName": "xxx",
+                            "PrivateIpAddress": "xxx",
+                            "PrivateIpAddresses": [
+                                {
+                                    "Association": {
+                                        "IpOwnerId": "amazon",
+                                        "PublicDnsName": "ec2-18-201-78-102.eu-west-1.compute.amazonaws.com",
+                                        "PublicIp": "18.201.78.102"
+                                    },
+                                    "Primary": true,
+                                    "PrivateDnsName": "xxx",
+                                    "PrivateIpAddress": "xxx"
+                                }
+                            ],
+                            "SourceDestCheck": true,
+                            "Status": "in-use",
+                            "SubnetId": "subnet-02a5387453cd80613",
+                            "VpcId": "vpc-09d96045b0f0e3df1",
+                            "InterfaceType": "interface",
+                            "Operator": {
+                                "Managed": false
+                            }
+                        },
+                        {
+                            "Attachment": {
+                                "AttachTime": "2025-06-22T23:33:17+00:00",
+                                "AttachmentId": "eni-attach-0d0a1a75fd538ee3f",
+                                "DeleteOnTermination": false,
+                                "DeviceIndex": 1,
+                                "Status": "attached",
+                                "NetworkCardIndex": 0
+                            },
+                            "Description": "arn:aws:ecs:eu-west-1:337909770571:attachment/1d96f010-f12b-4a3a-ae53-6537d30283b5",
+                            "Groups": [
+                                {
+                                    "GroupId": "sg-047570e44376e16d2",
+                                    "GroupName": "HiyrAPIServiceSG"
+                                }
+                            ],
+                            "Ipv6Addresses": [],
+                            "MacAddress": "06:ad:c1:1a:a9:db",
+                            "NetworkInterfaceId": "eni-0853275999739607b",
+                            "OwnerId": "337909770571",
+                            "PrivateDnsName": "xxx",
+                            "PrivateIpAddress": "xxx",
+                            "PrivateIpAddresses": [
+                                {
+                                    "Primary": true,
+                                    "PrivateDnsName": "xxx",
+                                    "PrivateIpAddress": "xxx"
+                                }
+                            ],
+                            "SourceDestCheck": true,
+                            "Status": "in-use",
+                            "SubnetId": "subnet-02a5387453cd80613",
+                            "VpcId": "vpc-09d96045b0f0e3df1",
+                            "InterfaceType": "interface",
+                            "Operator": {
+                                "Managed": false
+                            }
+                        }
+                    ],
+                    "RootDeviceName": "/dev/xvda",
+                    "RootDeviceType": "ebs",
+                    "SecurityGroups": [
+                        {
+                            "GroupId": "sg-006da7e86e7d82d50",
+                            "GroupName": "HiyrProdClusterSG"
+                        }
+                    ],
+                    "SourceDestCheck": true,
+                    "Tags": [
+                        {
+                            "Key": "AmazonECSManaged",
+                            "Value": ""
+                        },
+                        {
+                            "Key": "aws:ec2launchtemplate:version",
+                            "Value": "1"
+                        },
+                        {
+                            "Key": "aws:autoscaling:groupName",
+                            "Value": "Infra-ECS-Cluster-HiyrProdCluster-af80d9ae-ECSAutoScalingGroup-1sqrO95FcZoN"
+                        },
+                        {
+                            "Key": "aws:cloudformation:logical-id",
+                            "Value": "ECSAutoScalingGroup"
+                        },
+                        {
+                            "Key": "aws:cloudformation:stack-name",
+                            "Value": "Infra-ECS-Cluster-HiyrProdCluster-af80d9ae"
+                        },
+                        {
+                            "Key": "Name",
+                            "Value": "ECS Instance - HiyrProdCluster"
+                        },
+                        {
+                            "Key": "aws:ec2launchtemplate:id",
+                            "Value": "lt-011ec6e86670c682a"
+                        },
+                        {
+                            "Key": "aws:cloudformation:stack-id",
+                            "Value": "arn:aws:cloudformation:eu-west-1:337909770571:stack/Infra-ECS-Cluster-HiyrProdCluster-af80d9ae/1a62be70-f955-11ef-a081-0a0d8f5a6735"
+                        }
+                    ],
+                    "VirtualizationType": "hvm",
+                    "CpuOptions": {
+                        "CoreCount": 1,
+                        "ThreadsPerCore": 1
+                    },
+                    "CapacityReservationSpecification": {
+                        "CapacityReservationPreference": "open"
+                    },
+                    "HibernationOptions": {
+                        "Configured": false
+                    },
+                    "MetadataOptions": {
+                        "State": "applied",
+                        "HttpTokens": "optional",
+                        "HttpPutResponseHopLimit": 1,
+                        "HttpEndpoint": "enabled",
+                        "HttpProtocolIpv6": "disabled",
+                        "InstanceMetadataTags": "disabled"
+                    },
+                    "EnclaveOptions": {
+                        "Enabled": false
+                    },
+                    "PlatformDetails": "Linux/UNIX",
+                    "UsageOperation": "RunInstances",
+                    "UsageOperationUpdateTime": "2025-06-12T22:12:57+00:00",
+                    "PrivateDnsNameOptions": {
+                        "HostnameType": "ip-name",
+                        "EnableResourceNameDnsARecord": false,
+                        "EnableResourceNameDnsAAAARecord": false
+                    },
+                    "MaintenanceOptions": {
+                        "AutoRecovery": "default"
+                    },
+                    "CurrentInstanceBootMode": "legacy-bios",
+                    "Operator": {
+                        "Managed": false
+                    },
+                    "InstanceId": "i-08af3a1b1a9500f2d",
+                    "ImageId": "ami-0b7ef3c7339f4970c",
+                    "State": {
+                        "Code": 16,
+                        "Name": "running"
+                    },
+                    "PrivateDnsName": "ip-172-31-29-142.eu-west-1.compute.internal",
+                    "PublicDnsName": "ec2-18-201-78-102.eu-west-1.compute.amazonaws.com",
+                    "StateTransitionReason": "",
+                    "KeyName": "HiyrProdKP",
+                    "AmiLaunchIndex": 0,
+                    "ProductCodes": [],
+                    "InstanceType": "t2.micro",
+                    "LaunchTime": "2025-06-12T22:12:57+00:00",
+                    "Placement": {
+                        "GroupName": "",
+                        "Tenancy": "default",
+                        "AvailabilityZone": "eu-west-1a"
+                    },
+                    "Monitoring": {
+                        "State": "disabled"
+                    },
+                    "SubnetId": "subnet-02a5387453cd80613",
+                    "VpcId": "vpc-09d96045b0f0e3df1",
+                    "PrivateIpAddress": "xxx",
+                    "PublicIpAddress": "xxx"
+                }
+            ]
+        }
+    ]
+}
