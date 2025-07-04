@@ -114,7 +114,7 @@ resource "aws_security_group" "web_sg" {
 }
 
 # EC2 Instance
-resource "aws_instance" "web_server" {
+resource "aws_instance" "ECS Instance - HiyrProdCluster" {
   ami                         = data.aws_ami.amazon_linux.id
   instance_type               = var.instance_type
   key_name                    = var.key_name
@@ -149,7 +149,7 @@ resource "aws_instance" "web_server" {
   }
 
   tags = {
-    Name        = "web-server"
+    Name        = "ECS Instance - HiyrProdCluster"
     Environment = var.environment
     Project     = "terraform-demo"
     Owner       = "DevOps Team"

@@ -4,28 +4,23 @@ import (
 	"context"
 	"drift-watcher/config"
 	"drift-watcher/pkg/provider"
+	"drift-watcher/pkg/terraform"
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aConfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/pkg/errors"
 )
 
 type AWSProvider struct {
 	config aws.Config
 }
 
-func (aws *AWSProvider) InfrastructreMetadata(resourceType string, filter map[string]string) ([]provider.InfrastructureResource, error) {
-	return nil, nil
-}
-
-func (aws *AWSProvider) CompareWithTerraformConfig() error {
-	return nil
-}
-
-func NewAWSProvider(cfg *config.Config) (*AWSProvider, error) {
+func NewAWSProvider(cfg *config.Config) (provider.ProviderI, error) {
 	provider := AWSProvider{}
 
 	awsConfig, err := aConfig.LoadDefaultConfig(context.Background(),
@@ -40,45 +35,191 @@ func NewAWSProvider(cfg *config.Config) (*AWSProvider, error) {
 	return &provider, nil
 }
 
-func (aws AWSProvider) ResourceMetadata(ctx context.Context, resource string, attributes []string, filters map[string]string) (map[string]string, error) {
-	switch resource {
+func (a *AWSProvider) InfrastructreMetadata(ctx context.Context, resourceType string, filter map[string]string) (*provider.InfrastructureResource, error) {
+	var resourceDetail *provider.InfrastructureResource
+
+	switch resourceType {
 	case "ec2":
-		instance, err := aws.handleEC2Metadata(ctx, filters)
+		fmt.Println("filter inside handler", filter)
+		instance, err := a.handleEC2Metadata(ctx, filter)
 		if err != nil {
-			return nil, err
+			return resourceDetail, err
 		}
-		// TODO: parse and return map[string]string
-		fmt.Printf("%#v", instance)
-		return nil, nil
+
+		tags := map[string]string{}
+		for _, tag := range instance.Tags {
+			tags[*tag.Key] = *tag.Value
+		}
+
+		attributes := GetLiveEC2Attributes(&instance)
+		resourceDetail = &provider.InfrastructureResource{
+			ID:         *instance.InstanceId,
+			Type:       "ec2",
+			Tags:       tags,
+			Attributes: attributes,
+		}
+		return resourceDetail, nil
+
 	default:
-		return nil, fmt.Errorf("%s resource not yet supported for AWS provider", resource)
+		return resourceDetail, fmt.Errorf("%s resource not yet supported for AWS provider", resourceType)
 	}
 }
 
-// TODO: standardize filter structure for EC2
-func (aws AWSProvider) handleEC2Metadata(ctx context.Context, filters map[string]string) (types.Instance, error) {
-	if len(filters) == 0 {
-		return types.Instance{}, fmt.Errorf("At least an instance id must be specified")
+func (a *AWSProvider) CompareActiveAndDesiredState(ctx context.Context, resourceType string, liveState *provider.InfrastructureResource, desiredState terraform.Resource, attributesToTrack []string) (provider.DriftReport, error) {
+	var report provider.DriftReport
+	switch resourceType {
+	case "ec2":
+		if liveState == nil { // INFRASTRUCTURE_MISSING_IN_LIVE
+			report = provider.DriftReport{
+				ResourceId:   desiredState.Instances[0].Attributes.ID,
+				ResourceType: resourceType,
+				ResourceName: desiredState.Name,
+				HasDrift:     true,
+				DriftDetails: []provider.DriftItem{
+					{
+						Field:          "existence",
+						TerraformValue: "exists",
+						ActualValue:    "missing",
+						DriftType:      provider.AttributeMissingInInfrastructure,
+					},
+				},
+				GeneratedAt: time.Now(),
+				Status:      provider.ResourceMissingInInfrastructure,
+			}
+			return report, nil
+		}
+
+		desiredStateMap := generateDesiredStateMapper(desiredState.Instances[0])
+
+		driftReportStatus := provider.Match
+		var driftItems []provider.DriftItem
+		for _, attribute := range attributesToTrack {
+			if !IsValidEC2Attribute(attribute) {
+				slog.Warn(fmt.Sprintf("%s attribute is currently not supported for the %s resource", attribute, resourceType))
+				continue
+			}
+			liveVal := liveState.Attributes[attribute]
+			desiredVal := desiredStateMap[attribute]
+
+			driftItem := provider.DriftItem{
+				Field:          attribute,
+				TerraformValue: desiredVal,
+				ActualValue:    liveVal,
+				DriftType:      provider.Match,
+			}
+			switch {
+			case liveVal == nil && desiredVal != "":
+				driftItem.DriftType = provider.AttributeMissingInInfrastructure
+				driftReportStatus = provider.Drift
+			case desiredVal == "" && liveVal != nil:
+				driftItem.DriftType = provider.AttributeMissingInTerraform
+				driftReportStatus = provider.Drift
+			case desiredVal != liveVal:
+				driftItem.DriftType = provider.AttributeValueChanged
+				driftReportStatus = provider.Drift
+			}
+			driftItems = append(driftItems, driftItem)
+		}
+		report = provider.DriftReport{
+			ResourceId:   desiredState.Instances[0].Attributes.ID,
+			ResourceType: resourceType,
+			ResourceName: desiredState.Name,
+			HasDrift:     driftReportStatus != provider.Match,
+			DriftDetails: driftItems,
+			GeneratedAt:  time.Now(),
+			Status:       driftReportStatus,
+		}
 	}
-	ec2Filters := []types.Filter{}
-	for range filters {
+	return report, fmt.Errorf("infrastructure type not supported")
+}
+
+func generateDesiredStateMapper(desiredInstanceState terraform.Instance) map[string]string {
+	attr := desiredInstanceState.Attributes
+	result := make(map[string]string, 0)
+	// Core Instance Configuration
+	result[string(EC2AMIID)] = attr.AMI
+	result[string(EC2INSTANCETYPE)] = attr.InstanceType
+	result[string(EC2INSTANCEID)] = attr.ID
+	result[string(EC2KEYNAME)] = attr.KeyName
+	result[string(EC2AvailabilityZone)] = attr.AvailabilityZone
+	result[string(EC2TENANCY)] = attr.Tenancy
+	result[string(EC2MONITORING)] = strconv.FormatBool(attr.Monitoring)
+	result[string(EC2CPUCORECOUNT)] = strconv.Itoa(attr.CPUCoreCount)
+	result[string(EC2CPUTHREADPERCORE)] = strconv.Itoa(attr.CPUThreadsPerCore)
+	result[string(EC2EbsOptimzied)] = strconv.FormatBool(attr.EBSOptimized)
+
+	// Networking & Security
+	result[string(EC2SecurityGroupIDs)] = strings.Join(attr.VPCSecurityGroupIDs, ",")
+	result[string(EC2SUBNETID)] = attr.SubnetID
+	result[string(EC2AssociatePublicIPAddress)] = strconv.FormatBool(attr.AssociatePublicIPAddress)
+	result[string(EC2PrivateIP)] = attr.PrivateIP
+	result[string(EC2PrivateDnsName)] = attr.PrivateDNS
+	result[string(EC2PublicIP)] = attr.PublicIP
+	result[string(EC2PublicDnsName)] = attr.PublicDNS
+	result[string(EC2SourceDestCheck)] = strconv.FormatBool(attr.SourceDestCheck)
+	result[string(EC2IAMInstanceID)] = attr.IAMInstanceProfile
+	result[string(EC2IAMInstanceARN)] = attr.ARN
+
+	// Storage (EBS Volumes) - serialize as JSON for complex structures
+	if len(attr.RootBlockDevice) > 0 {
+		rootBlockJSON, _ := json.Marshal(attr.RootBlockDevice)
+		result[string(EC2RootBlockDevice)] = string(rootBlockJSON)
+
+		// Extract specific attributes from root block device
+		if rootBlock := attr.RootBlockDevice[0]; rootBlock != nil {
+			if deviceName, ok := rootBlock["device_name"].(string); ok {
+				result[string(EC2BlockDeviceName)] = deviceName
+			}
+			if volumeID, ok := rootBlock["volume_id"].(string); ok {
+				result[string(EC2VolumeID)] = volumeID
+			}
+			if volumeSize, ok := rootBlock["volume_size"].(float64); ok {
+				result[string(EC2VolumeSize)] = strconv.FormatFloat(volumeSize, 'f', 0, 64)
+			}
+			if volumeType, ok := rootBlock["volume_type"].(string); ok {
+				result[string(EC2VolumeType)] = volumeType
+			}
+			if encrypted, ok := rootBlock["encrypted"].(bool); ok {
+				result[string(EC2VolumeEncrypted)] = strconv.FormatBool(encrypted)
+			}
+			if deleteOnTermination, ok := rootBlock["delete_on_termination"].(bool); ok {
+				result[string(EC2DeleteOnTermination)] = strconv.FormatBool(deleteOnTermination)
+			}
+		}
 	}
 
-	ec2Client := ec2.NewFromConfig(aws.config)
-	input := ec2.DescribeInstancesInput{
-		Filters: ec2Filters,
-	}
-	output, err := ec2Client.DescribeInstances(ctx, &input)
-	if err != nil {
-		return types.Instance{}, errors.Wrap(err, "Failed to describe ec2 instance")
-	}
-	if len(output.Reservations) == 0 {
-		return types.Instance{}, fmt.Errorf("%s resource with id %s is not running", "EC2", "")
-	}
-	// TODO: this should ideally never happen, but find a sensible way to handle this
-	if len(output.Reservations) != 1 {
-		return types.Instance{}, fmt.Errorf("%s resource with id %s returns duplicate result", "EC2", "")
+	if len(attr.EBSBlockDevice) > 0 {
+		ebsBlockJSON, _ := json.Marshal(attr.EBSBlockDevice)
+		result[string(EC2EBSBlockDevice)] = string(ebsBlockJSON)
 	}
 
-	return output.Reservations[0].Instances[0], nil
+	// Metadata & User Data
+	if len(attr.MetadataOptions) > 0 {
+		metadataJSON, _ := json.Marshal(attr.MetadataOptions)
+		result[string(EC2MetadataOptions)] = string(metadataJSON)
+	}
+
+	if attr.UserData != nil {
+		if userData, ok := attr.UserData.(string); ok {
+			result[string(EC2UserData)] = userData
+		}
+	}
+
+	if attr.UserDataBase64 != nil {
+		if userDataBase64, ok := attr.UserDataBase64.(string); ok {
+			result[string(EC2UserDataBase64)] = userDataBase64
+		}
+	}
+
+	// State
+	result[string(EC2InstanceState)] = attr.InstanceState
+
+	// Remove empty values
+	for k, v := range result {
+		if v == "" || v == "[]" || v == "null" {
+			delete(result, k)
+		}
+	}
+
+	return result
 }

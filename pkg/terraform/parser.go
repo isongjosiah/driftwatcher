@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/pkg/errors"
 )
@@ -51,85 +50,38 @@ func parseStateFile(filePath string) (ParsedTerraform, error) {
 	return out, nil
 }
 
-func parseHCLFile(filePath string) (ParsedTerraform, error) {
-	parser := hclparse.NewParser()
-	var out ParsedTerraform
-
-	file, diags := parser.ParseHCLFile(filePath)
-	if diags.HasErrors() {
-		return out, errors.Wrap(diags, fmt.Sprintf("Failed to parse terraform hcl file %s", filePath))
-	}
-
-	out = ParsedTerraform{
-		Type:     "hcl",
-		FilePath: filePath,
-		HCL:      file,
-		Body:     file.Body,
-	}
-
-	return out, nil
-}
-
 // GetResources extracts resources from parsed Terraform data
 func (pt *ParsedTerraform) GetResources() ([]Resource, error) {
 	if pt.Type == "state" && pt.State != nil {
 		return pt.State.Resources, nil
 	}
 
-	if pt.Type == "hcl" && pt.Body != nil {
-		return extractResourcesFromHCL(pt.Body)
+	if pt.Type == "hcl" {
+		return processExtractedResources(&pt.HCLConfig)
 	}
 
 	return nil, fmt.Errorf("no valid data to extract resources from")
 }
 
-// extractResourcesFromHCL extracts resource information from HCL body
-func extractResourcesFromHCL(body hcl.Body) ([]Resource, error) {
-	var resources []Resource
+func parseHCLFile(filePath string) (ParsedTerraform, error) {
+	parser := hclparse.NewParser()
+	var out ParsedTerraform
 
-	// Get the body content
-	content, _, diags := body.PartialContent(&hcl.BodySchema{
-		Blocks: []hcl.BlockHeaderSchema{
-			{
-				Type:       "resource",
-				LabelNames: []string{"type", "name"},
-			},
-		},
-	})
+	file, diags := parser.ParseHCLFile(filePath)
+	//if diags.HasErrors() {
+	//	return out, errors.Wrap(diags, fmt.Sprintf("Failed to parse terraform hcl file %s", filePath))
+	//}
 
-	if diags.HasErrors() {
-		return nil, fmt.Errorf("failed to extract HCL content: %s", diags.Error())
+	config, err := extractTerraformConfigFromHCL(file.Body)
+	fmt.Printf("%#v", config)
+	if err != nil {
+		return out, errors.Wrap(diags, fmt.Sprintf("Failed to parse terraform hcl file %s", filePath))
 	}
 
-	// Process each resource block
-	for _, block := range content.Blocks {
-		if block.Type == "resource" {
-			resource := Resource{
-				Mode: "managed",
-				Type: block.Labels[0],
-				Name: block.Labels[1],
-			}
-
-			// Extract attributes (simplified)
-			attrs, diags := block.Body.JustAttributes()
-			if !diags.HasErrors() {
-				instance := Instance{
-					Attributes: make(map[string]interface{}),
-				}
-
-				for name, attr := range attrs {
-					val, diags := attr.Expr.Value(nil)
-					if !diags.HasErrors() {
-						instance.Attributes[name] = val
-					}
-				}
-
-				resource.Instances = []Instance{instance}
-			}
-
-			resources = append(resources, resource)
-		}
+	out = ParsedTerraform{
+		Type:      "hcl",
+		FilePath:  filePath,
+		HCLConfig: *config,
 	}
-
-	return resources, nil
+	return out, nil
 }
