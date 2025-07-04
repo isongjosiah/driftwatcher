@@ -1,5 +1,6 @@
 package provider
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 import (
 	"context"
 	"drift-watcher/pkg/terraform"
@@ -53,6 +54,7 @@ type DriftReport struct {
 	Status       string      `json:"status,omitempty"`
 }
 
+//counterfeiter:generate . ProviderI
 type ProviderI interface {
 	InfrastructreMetadata(ctx context.Context, resourceType string, filters map[string]string) (*InfrastructureResource, error)
 	CompareActiveAndDesiredState(ctx context.Context, resourceType string, liveState *InfrastructureResource, desiredState terraform.Resource, attributesToTrack []string) (DriftReport, error)
