@@ -1,5 +1,7 @@
 COUNTERFEITER      := $(shell command -v counterfeiter 2> /dev/null)
-STRINGER 					:= $(shell command -v stringer 2> /dev/null)
+STRINGER := $(shell command -v stringer 2> /dev/null)
+TEST_FUNCTION ?= TestMySpecificFunction
+PACKAGE_PATH  ?= ./path/to/package
 
 get/stringer:
 ifndef STRINGER
@@ -19,3 +21,15 @@ generate: get/counterfeiter get/stringer
 build:
 	go build -o bin/driftwatcher cmd/drift_watcher/main.go
 
+test:
+	go test ./... 
+
+testv:
+	go test -v ./... 
+
+testcov:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
+
+test-specific:
+	go test -run $(TEST_FUNCTION) $(PACKAGE_PATH)

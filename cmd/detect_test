@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"drift-watcher/cmd/mocks" // Import the mocks package
 	"drift-watcher/config"
 	"drift-watcher/pkg/provider"
 	"drift-watcher/pkg/provider/aws"
@@ -445,7 +444,7 @@ var newAWSProviderFunc = aws.NewAWSProvider
 func init() {
 	// Override CheckAWSConfig to avoid actual AWS config checks during tests
 	// This function is called in newDetectCmd
-	originalCheckAWSConfig := CheckAWSConfig
+	originalCheckAWSConfig := CheckAWSConfig()
 	CheckAWSConfig = func() (config.AWSConfig, error) {
 		return config.AWSConfig{ProfileName: "mock_profile"}, nil
 	}
