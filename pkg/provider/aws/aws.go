@@ -7,10 +7,8 @@ import (
 	"drift-watcher/pkg/terraform"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -66,71 +64,12 @@ func (a *AWSProvider) InfrastructreMetadata(ctx context.Context, resourceType st
 }
 
 func (a *AWSProvider) CompareActiveAndDesiredState(ctx context.Context, resourceType string, liveState *provider.InfrastructureResource, desiredState terraform.Resource, attributesToTrack []string) (provider.DriftReport, error) {
-	var report provider.DriftReport
 	switch resourceType {
 	case "ec2":
-		if liveState == nil { // INFRASTRUCTURE_MISSING_IN_LIVE
-			report = provider.DriftReport{
-				ResourceId:   desiredState.Instances[0].Attributes.ID,
-				ResourceType: resourceType,
-				ResourceName: desiredState.Name,
-				HasDrift:     true,
-				DriftDetails: []provider.DriftItem{
-					{
-						Field:          "existence",
-						TerraformValue: "exists",
-						ActualValue:    "missing",
-						DriftType:      provider.AttributeMissingInInfrastructure,
-					},
-				},
-				GeneratedAt: time.Now(),
-				Status:      provider.ResourceMissingInInfrastructure,
-			}
-			return report, nil
-		}
-
-		desiredStateMap := generateDesiredStateMapper(desiredState.Instances[0])
-
-		driftReportStatus := provider.Match
-		var driftItems []provider.DriftItem
-		for _, attribute := range attributesToTrack {
-			if !IsValidEC2Attribute(attribute) {
-				slog.Warn(fmt.Sprintf("%s attribute is currently not supported for the %s resource", attribute, resourceType))
-				continue
-			}
-			liveVal := liveState.Attributes[attribute]
-			desiredVal := desiredStateMap[attribute]
-
-			driftItem := provider.DriftItem{
-				Field:          attribute,
-				TerraformValue: desiredVal,
-				ActualValue:    liveVal,
-				DriftType:      provider.Match,
-			}
-			switch {
-			case liveVal == nil && desiredVal != "":
-				driftItem.DriftType = provider.AttributeMissingInInfrastructure
-				driftReportStatus = provider.Drift
-			case desiredVal == "" && liveVal != nil:
-				driftItem.DriftType = provider.AttributeMissingInTerraform
-				driftReportStatus = provider.Drift
-			case desiredVal != liveVal:
-				driftItem.DriftType = provider.AttributeValueChanged
-				driftReportStatus = provider.Drift
-			}
-			driftItems = append(driftItems, driftItem)
-		}
-		report = provider.DriftReport{
-			ResourceId:   desiredState.Instances[0].Attributes.ID,
-			ResourceType: resourceType,
-			ResourceName: desiredState.Name,
-			HasDrift:     driftReportStatus != provider.Match,
-			DriftDetails: driftItems,
-			GeneratedAt:  time.Now(),
-			Status:       driftReportStatus,
-		}
+		return compareEC2DesiredAndActiveState(ctx, resourceType, liveState, desiredState, attributesToTrack)
+	default:
+		return provider.DriftReport{}, fmt.Errorf("infrastructure type not supported")
 	}
-	return report, fmt.Errorf("infrastructure type not supported")
 }
 
 func generateDesiredStateMapper(desiredInstanceState terraform.Instance) map[string]string {

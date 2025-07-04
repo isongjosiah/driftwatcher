@@ -17,15 +17,15 @@ func ParseTerraformFile(filePath string) (ParsedTerraform, error) {
 	ext := filepath.Ext(filePath)
 	switch strings.ToLower(ext) {
 	case ".tfstate":
-		return parseStateFile(filePath)
-	case ".hcl":
-		return parseHCLFile(filePath)
+		return ParseStateFile(filePath)
+	// case ".hcl":
+	//	return parseHCLFile(filePath)
 	default:
-		return parsedInfo, fmt.Errorf("invalid file format. Only .tfstate and .hcl files are supported")
+		return parsedInfo, fmt.Errorf("invalid file format. Only .tfstate files are supported at the moment")
 	}
 }
 
-func parseStateFile(filePath string) (ParsedTerraform, error) {
+func ParseStateFile(filePath string) (ParsedTerraform, error) {
 	var out ParsedTerraform
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -52,15 +52,17 @@ func parseStateFile(filePath string) (ParsedTerraform, error) {
 
 // GetResources extracts resources from parsed Terraform data
 func (pt *ParsedTerraform) GetResources() ([]Resource, error) {
-	if pt.Type == "state" && pt.State != nil {
+	switch pt.Type {
+	case "state":
+		if pt.State == nil {
+			return []Resource{}, nil
+		}
 		return pt.State.Resources, nil
+	// case "hcl":
+	//	return processExtractedResources(&pt.HCLConfig)
+	default:
+		return nil, fmt.Errorf("no valid data to extract resources from")
 	}
-
-	if pt.Type == "hcl" {
-		return processExtractedResources(&pt.HCLConfig)
-	}
-
-	return nil, fmt.Errorf("no valid data to extract resources from")
 }
 
 func parseHCLFile(filePath string) (ParsedTerraform, error) {

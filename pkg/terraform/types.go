@@ -18,7 +18,7 @@ type Resource struct {
 	Attributes   map[string]any
 	Provider     string     `json:"provider"`
 	Instances    []Instance `json:"instances"`
-	Dependencies []string   `json:"depends_on,omitempty"`
+	Dependencies []string   `json:"depends_on"`
 }
 
 // Instance represents an instance of a resource

@@ -3,7 +3,10 @@ package aws
 import (
 	"context"
 	"drift-watcher/pkg/provider"
+	"drift-watcher/pkg/terraform"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -114,6 +117,8 @@ func GetLiveEC2Attributes(instance *types.Instance) map[string]any {
 		}
 		if bdm.Ebs.DeleteOnTermination != nil {
 			blockDeviceAttrs[string(EC2DeleteOnTermination)] = *bdm.Ebs.DeleteOnTermination
+		} else {
+			blockDeviceAttrs[string(EC2DeleteOnTermination)] = false
 		}
 
 		if bdm.DeviceName != nil && (*bdm.DeviceName == *instance.RootDeviceName) { // Use RootDeviceName for reliability
@@ -164,6 +169,66 @@ func (a AWSProvider) handleEC2Metadata(ctx context.Context, filters map[string]s
 	return output.Reservations[0].Instances[0], nil
 }
 
-func compareEC2DesiredAndActiveState() (provider.DriftReport, error) {
-	return provider.DriftReport{}, nil
+func compareEC2DesiredAndActiveState(ctx context.Context, resourceType string, liveState *provider.InfrastructureResource, desiredState terraform.Resource, attributesToTrack []string) (provider.DriftReport, error) {
+	if liveState == nil { // INFRASTRUCTURE_MISSING_IN_LIVE
+		report := provider.DriftReport{
+			ResourceId:   desiredState.Instances[0].Attributes.ID,
+			ResourceType: resourceType,
+			ResourceName: desiredState.Name,
+			HasDrift:     true,
+			DriftDetails: []provider.DriftItem{
+				{
+					Field:          "existence",
+					TerraformValue: "exists",
+					ActualValue:    "missing",
+					DriftType:      provider.AttributeMissingInInfrastructure,
+				},
+			},
+			GeneratedAt: time.Now(),
+			Status:      provider.ResourceMissingInInfrastructure,
+		}
+		return report, nil
+	}
+
+	desiredStateMap := generateDesiredStateMapper(desiredState.Instances[0])
+
+	driftReportStatus := provider.Match
+	var driftItems []provider.DriftItem
+	for _, attribute := range attributesToTrack {
+		if !IsValidEC2Attribute(attribute) {
+			slog.Warn(fmt.Sprintf("%s attribute is currently not supported for the %s resource", attribute, resourceType))
+			continue
+		}
+		liveVal := liveState.Attributes[attribute]
+		desiredVal := desiredStateMap[attribute]
+
+		driftItem := provider.DriftItem{
+			Field:          attribute,
+			TerraformValue: desiredVal,
+			ActualValue:    liveVal,
+			DriftType:      provider.Match,
+		}
+		switch {
+		case liveVal == nil && desiredVal != "":
+			driftItem.DriftType = provider.AttributeMissingInInfrastructure
+			driftReportStatus = provider.Drift
+		case desiredVal == "" && liveVal != nil:
+			driftItem.DriftType = provider.AttributeMissingInTerraform
+			driftReportStatus = provider.Drift
+		case desiredVal != liveVal:
+			driftItem.DriftType = provider.AttributeValueChanged
+			driftReportStatus = provider.Drift
+		}
+		driftItems = append(driftItems, driftItem)
+	}
+	report := provider.DriftReport{
+		ResourceId:   desiredState.Instances[0].Attributes.ID,
+		ResourceType: resourceType,
+		ResourceName: desiredState.Name,
+		HasDrift:     driftReportStatus != provider.Match,
+		DriftDetails: driftItems,
+		GeneratedAt:  time.Now(),
+		Status:       driftReportStatus,
+	}
+	return report, nil
 }
