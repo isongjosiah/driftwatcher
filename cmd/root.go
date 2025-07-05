@@ -18,17 +18,20 @@ var Config config.Config
 // or environment variables that point to them.
 // It returns true if a configuration file is found, along with the path to the first one found.
 // It logs debug messages indicating where it's looking and what it finds.
-func CheckAWSConfig() (config.AWSConfig, error) {
+func CheckAWSConfig(homeDir string) (config.AWSConfig, error) {
 	configDetail := config.AWSConfig{
 		CredentialPath: []string{},
 		ConfigPath:     []string{},
 	}
 
+	var err error
 	// attempt to load from the default location
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		slog.Error("Failed to get user home directory", "error", err)
-		return configDetail, err
+	if homeDir == "" {
+		homeDir, err = os.UserHomeDir()
+		if err != nil {
+			slog.Error("Failed to get user home directory", "error", err)
+			return configDetail, err
+		}
 	}
 
 	defaultAWSPath := filepath.Join(homeDir, ".aws")
@@ -104,7 +107,7 @@ func CheckAWSConfig() (config.AWSConfig, error) {
 }
 
 func rootAwsCheck() string {
-	_, err := CheckAWSConfig()
+	_, err := CheckAWSConfig("")
 	if err != nil {
 		return "Before using the CLI yo would need to setup your AWS profile"
 	}
@@ -134,12 +137,6 @@ func Execute(ctx context.Context) {
 		}
 
 		os.Exit(1)
-	} else {
-		userInput := os.Args[1:]
-		// --color on/off/auto
-		if len(userInput) == 2 && userInput[0] == "--color" {
-			fmt.Println("You provided the \"--color\" flag but did not specify any command. The \"--color\" flag configures the color output of a specified command.")
-		}
 	}
 }
 

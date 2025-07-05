@@ -29,7 +29,7 @@ type detectCmd struct {
 }
 
 func newDetectCmd(cfg *config.Config) *detectCmd {
-	config, err := CheckAWSConfig()
+	config, err := CheckAWSConfig("")
 	if err != nil {
 		slog.Error("Failed to parse aws credentials")
 		os.Exit(1)
