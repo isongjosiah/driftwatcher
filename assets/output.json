@@ -1,0 +1,13 @@
+{
+  "resource_type": "aws_instance",
+  "drift_details": [
+    {
+      "field": "instance_type",
+      "terraform_value": "t2.micro",
+      "actual_value": "t2.micro",
+      "drift_type": "MATCH"
+    }
+  ],
+  "generated_at": "2025-07-09T20:39:23.050415+01:00",
+  "status": "MATCH"
+}

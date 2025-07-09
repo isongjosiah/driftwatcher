@@ -89,34 +89,43 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("A state file is required")
 	}
 
-	switch d.StateManagerType {
-	case "terraform":
-		d.StateManager = terraform.NewTerraformManager()
-	default:
-		return fmt.Errorf("%s statemanager not currently supported", d.StateManagerType)
+	if d.StateManager == nil {
+		switch d.StateManagerType {
+		case "terraform":
+			d.StateManager = terraform.NewTerraformManager()
+		default:
+			return fmt.Errorf("%s statemanager not currently supported", d.StateManagerType)
+		}
 	}
 
-	switch d.Provider {
-	case "aws":
-		config, err := aws.CheckAWSConfig("", "hiyr")
-		if err != nil {
-			return err
-		}
+	if d.PlatformProvider == nil {
+		switch d.Provider {
+		case "aws":
+			config, err := aws.CheckAWSConfig("", "hiyr")
+			if err != nil {
+				return err
+			}
 
-		provider, err := aws.NewAWSProvider(&config)
-		if err != nil {
-			return err
+			provider, err := aws.NewAWSProvider(&config)
+			if err != nil {
+				return err
+			}
+			d.PlatformProvider = provider
+		default:
+			return fmt.Errorf("%s platform not currently supported", d.Provider)
 		}
-		d.PlatformProvider = provider
-	default:
-		return fmt.Errorf("%s platform not currently supported", d.Provider)
 	}
-	d.DriftChecker = driftchecker.NewDefaultDriftChecker()
 
-	if d.OutputPath != "" {
-		d.Reporter = reporter.NewFileReporter(d.OutputPath)
-	} else {
-		d.Reporter = reporter.NewStdoutReporter()
+	if d.DriftChecker == nil {
+		d.DriftChecker = driftchecker.NewDefaultDriftChecker()
+	}
+
+	if d.Reporter == nil {
+		if d.OutputPath != "" {
+			d.Reporter = reporter.NewFileReporter(d.OutputPath)
+		} else {
+			d.Reporter = reporter.NewStdoutReporter()
+		}
 	}
 
 	return RunDriftDetection(d.ctx, d.TfConfigPath, d.Resource, d.AttributesToTrack, d.StateManager, d.PlatformProvider, d.DriftChecker, d.Reporter)
@@ -151,7 +160,7 @@ func RunDriftDetection(
 	}
 
 	if len(resources) == 0 {
-		slog.Info("No resources found to check for drift.")
+		slog.Error("No resources found to check for drift.")
 		return nil
 	}
 

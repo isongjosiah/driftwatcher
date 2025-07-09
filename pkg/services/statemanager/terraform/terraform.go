@@ -24,6 +24,7 @@ func NewTerraformManager() *TerraformStateManager {
 func (t *TerraformStateManager) ParseStateFile(ctx context.Context, statePath string) (statemanager.StateContent, error) {
 	var out statemanager.StateContent
 	_, err := os.Stat(statePath)
+	fmt.Println("error is", err)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return out, errors.Wrap(err, "state file does not exist")
