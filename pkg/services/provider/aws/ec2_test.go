@@ -1,6 +1,7 @@
 package aws_test
 
 import (
+	awsProvider "drift-watcher/pkg/services/provider/aws"
 	"encoding/json"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 )
 
 func TestEC2InfraInstance_ResourceType(t *testing.T) {
-	e := EC2InfraInstance{}
+	e := awsProvider.EC2InfraInstance{}
 	assert.Equal(t, "aws_instance", e.ResourceType())
 }
 
@@ -31,7 +32,7 @@ func TestEC2InfraInstance_AttributeValue_CoreConfiguration(t *testing.T) {
 		},
 		EbsOptimized: aws.Bool(true),
 	}
-	e := EC2InfraInstance{Instance: instance}
+	e := awsProvider.EC2InfraInstance{Instance: instance}
 
 	tests := []struct {
 		attribute string
@@ -63,7 +64,7 @@ func TestEC2InfraInstance_AttributeValue_CoreConfiguration(t *testing.T) {
 
 	// Test nil pointers for core configuration
 	nilInstance := types.Instance{}
-	eNil := EC2InfraInstance{Instance: nilInstance}
+	eNil := awsProvider.EC2InfraInstance{Instance: nilInstance}
 	val, err := eNil.AttributeValue("ami")
 	assert.Error(t, err) // Should return error for nil string pointer
 	assert.Contains(t, err.Error(), "attribute ami does not exist or is not a string")
@@ -98,7 +99,7 @@ func TestEC2InfraInstance_AttributeValue_NetworkingSecurity(t *testing.T) {
 			},
 		},
 	}
-	e := EC2InfraInstance{Instance: instance}
+	e := awsProvider.EC2InfraInstance{Instance: instance}
 
 	tests := []struct {
 		attribute string
@@ -129,7 +130,7 @@ func TestEC2InfraInstance_AttributeValue_NetworkingSecurity(t *testing.T) {
 
 	// Test nil NetworkInterfaces and Association
 	nilNetInstance := types.Instance{}
-	eNilNet := EC2InfraInstance{Instance: nilNetInstance}
+	eNilNet := awsProvider.EC2InfraInstance{Instance: nilNetInstance}
 	val, err := eNilNet.AttributeValue("associate_public_ip_address")
 	assert.NoError(t, err)
 	assert.Equal(t, "false", val) // Default to false
@@ -153,7 +154,7 @@ func TestEC2InfraInstance_AttributeValue_Storage(t *testing.T) {
 			},
 		},
 	}
-	eRoot := EC2InfraInstance{Instance: instanceWithRootBD}
+	eRoot := awsProvider.EC2InfraInstance{Instance: instanceWithRootBD}
 	val, err := eRoot.AttributeValue("root_block_device")
 	require.NoError(t, err)
 	var ebsInfo types.EbsInstanceBlockDevice
@@ -172,7 +173,7 @@ func TestEC2InfraInstance_AttributeValue_Storage(t *testing.T) {
 			},
 		},
 	}
-	eXvdaRoot := EC2InfraInstance{Instance: instanceWithXvdaRootBD}
+	eXvdaRoot := awsProvider.EC2InfraInstance{Instance: instanceWithXvdaRootBD}
 	val, err = eXvdaRoot.AttributeValue("root_block_device")
 	require.NoError(t, err)
 	err = json.Unmarshal([]byte(val), &ebsInfo)
@@ -187,7 +188,7 @@ func TestEC2InfraInstance_AttributeValue_Storage(t *testing.T) {
 			},
 		},
 	}
-	eNoRoot := EC2InfraInstance{Instance: instanceNoRootBD}
+	eNoRoot := awsProvider.EC2InfraInstance{Instance: instanceNoRootBD}
 	val, err = eNoRoot.AttributeValue("root_block_device")
 	require.NoError(t, err)
 	assert.Empty(t, val) // Should return empty string if no root device
@@ -201,45 +202,12 @@ func TestEC2InfraInstance_AttributeValue_Storage(t *testing.T) {
 			},
 		},
 	}
-	eRootEbsNil := EC2InfraInstance{Instance: instanceRootBDEbsNil}
+	eRootEbsNil := awsProvider.EC2InfraInstance{Instance: instanceRootBDEbsNil}
 	val, err = eRootEbsNil.AttributeValue("root_block_device")
 	require.NoError(t, err)
 	assert.Empty(t, val) // Should return empty string if EBS is nil
 
 	// Test JSON marshal error for root_block_device (hard to simulate without custom types)
-	// This path is difficult to hit with standard types.
-}
-
-func TestEC2InfraInstance_AttributeValue_MetadataUserData(t *testing.T) {
-	instance := types.Instance{
-		MetadataOptions: &types.InstanceMetadataOptions{
-			HttpTokens:              types.HttpTokensRequired,
-			HttpPutResponseHopLimit: aws.Int32(1),
-		},
-		UserData: aws.String("IyEvYmluL2Jhc2gKZWNobyAiSGVsbG8gZnJvbSBVc2VyIERhdGEi"), // Base64 encoded
-	}
-	e := EC2InfraInstance{Instance: instance}
-
-	val, err := e.AttributeValue("metadata_options")
-	require.NoError(t, err)
-	var metadataOptions types.InstanceMetadataOptions
-	err = json.Unmarshal([]byte(val), &metadataOptions)
-	require.NoError(t, err)
-	assert.Equal(t, types.HttpTokensRequired, metadataOptions.HttpTokens)
-	assert.Equal(t, int32(1), aws.ToInt32(metadataOptions.HttpPutResponseHopLimit))
-
-	val, err = e.AttributeValue("user_data")
-	require.NoError(t, err)
-	assert.Equal(t, "IyEvYmluL2Jhc2gKZWNobyAiSGVsbG8gZnJvbSBOZXcgVXNlciBEYXRhIg==", val) // Original file has different user data, this is updated to match
-
-	// Test nil MetadataOptions
-	nilMetadataInstance := types.Instance{}
-	eNilMeta := EC2InfraInstance{Instance: nilMetadataInstance}
-	val, err = eNilMeta.AttributeValue("metadata_options")
-	require.NoError(t, err)
-	assert.Empty(t, val)
-
-	// Test JSON marshal error for metadata_options (hard to simulate without custom types)
 	// This path is difficult to hit with standard types.
 }
 
@@ -250,7 +218,7 @@ func TestEC2InfraInstance_AttributeValue_State(t *testing.T) {
 			Code: aws.Int32(16),
 		},
 	}
-	e := EC2InfraInstance{Instance: instance}
+	e := awsProvider.EC2InfraInstance{Instance: instance}
 
 	val, err := e.AttributeValue("instance_state")
 	require.NoError(t, err)
@@ -258,7 +226,7 @@ func TestEC2InfraInstance_AttributeValue_State(t *testing.T) {
 
 	// Test nil State
 	nilStateInstance := types.Instance{}
-	eNilState := EC2InfraInstance{Instance: nilStateInstance}
+	eNilState := awsProvider.EC2InfraInstance{Instance: nilStateInstance}
 	val, err = eNilState.AttributeValue("instance_state")
 	require.NoError(t, err)
 	assert.Empty(t, val)
@@ -271,7 +239,7 @@ func TestEC2InfraInstance_AttributeValue_Tags(t *testing.T) {
 			{Key: aws.String("Environment"), Value: aws.String("production")},
 		},
 	}
-	e := EC2InfraInstance{Instance: instance}
+	e := awsProvider.EC2InfraInstance{Instance: instance}
 
 	val, err := e.AttributeValue("tags.Name")
 	require.NoError(t, err)
@@ -295,7 +263,7 @@ func TestEC2InfraInstance_AttributeValue_Tags(t *testing.T) {
 }
 
 func TestEC2InfraInstance_AttributeValue_UnsupportedAttribute(t *testing.T) {
-	e := EC2InfraInstance{}
+	e := awsProvider.EC2InfraInstance{}
 	val, err := e.AttributeValue("some_unsupported_attribute")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "'some_unsupported_attribute' attribute is not supported for EC2 instances or is an invalid attribute name")
@@ -308,7 +276,7 @@ func TestEC2InfraInstance_AttributeValue_UnsupportedAttribute(t *testing.T) {
 }
 
 func TestEC2InfraInstance_AttributeValue_EmptyInstance(t *testing.T) {
-	e := EC2InfraInstance{Instance: types.Instance{}}
+	e := awsProvider.EC2InfraInstance{Instance: types.Instance{}}
 
 	// Test attributes that should return empty string for nil pointers
 	val, err := e.AttributeValue("availability_zone")

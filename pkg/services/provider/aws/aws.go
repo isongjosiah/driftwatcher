@@ -15,7 +15,7 @@ import (
 )
 
 type AWSProvider struct {
-	config aws.Config
+	Config aws.Config
 }
 
 func NewAWSProvider(cfg *config.AWSConfig) (provider.ProviderI, error) {
@@ -28,7 +28,7 @@ func NewAWSProvider(cfg *config.AWSConfig) (provider.ProviderI, error) {
 	if err != nil {
 		return nil, err
 	}
-	provider.config = awsConfig
+	provider.Config = awsConfig
 
 	return &provider, nil
 }
@@ -44,7 +44,7 @@ func (a *AWSProvider) InfrastructreMetadata(ctx context.Context, resourceType st
 			return nil, fmt.Errorf("resource Id not parsed from state file")
 		}
 
-		instance, err := a.handleEC2Metadata(ctx, resourceId)
+		instance, err := a.HandleEC2Metadata(ctx, resourceId)
 		if err != nil {
 			return instance, err
 		}
@@ -56,7 +56,7 @@ func (a *AWSProvider) InfrastructreMetadata(ctx context.Context, resourceType st
 	}
 }
 
-func (a *AWSProvider) handleEC2Metadata(ctx context.Context, resourceId string) (*EC2InfraInstance, error) {
+func (a *AWSProvider) HandleEC2Metadata(ctx context.Context, resourceId string) (*EC2InfraInstance, error) {
 	ec2Filters := []types.Filter{
 		{
 			Name:   aws.String("instance-id"),
@@ -64,7 +64,7 @@ func (a *AWSProvider) handleEC2Metadata(ctx context.Context, resourceId string) 
 		},
 	}
 
-	ec2Client := ec2.NewFromConfig(a.config)
+	ec2Client := ec2.NewFromConfig(a.Config)
 	input := ec2.DescribeInstancesInput{
 		Filters: ec2Filters,
 	}

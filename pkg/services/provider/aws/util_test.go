@@ -2,7 +2,7 @@ package aws_test
 
 import (
 	"bytes"
-	"fmt"
+	awsProvider "drift-watcher/pkg/services/provider/aws"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -49,7 +49,7 @@ func TestCheckAWSConfig_DefaultPathsFound(t *testing.T) {
 	createAwsConfigFiles(t, filepath.Join(homeDir, ".aws"), "[default]\naws_access_key_id = test", "[profile default]\nregion = us-east-1")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "")
 	require.NoError(t, err)
 
 	assert.Len(t, cfg.CredentialPath, 1)
@@ -78,7 +78,7 @@ func TestCheckAWSConfig_EnvVarsOverride(t *testing.T) {
 	defer os.Unsetenv("AWS_CONFIG_FILE")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig("/nonexistent/home", "my-profile") // Use non-existent home to ensure env vars are picked
+	cfg, err := awsProvider.CheckAWSConfig("/nonexistent/home", "my-profile") // Use non-existent home to ensure env vars are picked
 	require.NoError(t, err)
 
 	assert.Len(t, cfg.CredentialPath, 1)
@@ -92,15 +92,10 @@ func TestCheckAWSConfig_EnvVarsOverride(t *testing.T) {
 }
 
 func TestCheckAWSConfig_HomeDirError(t *testing.T) {
-	// Mock os.UserHomeDir to return an error
-	originalUserHomeDir := os.UserHomeDir
-	osUserHomeDir = func() (string, error) {
-		return "", fmt.Errorf("mock home dir error")
-	}
-	defer func() { osUserHomeDir = originalUserHomeDir }() // Restore original
+	dir := os.TempDir()
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig("", "")
+	cfg, err := awsProvider.CheckAWSConfig(dir, "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "mock home dir error")
 	assert.Empty(t, cfg.CredentialPath)
@@ -117,7 +112,7 @@ func TestCheckAWSConfig_DefaultCredsNotFound(t *testing.T) {
 	createAwsConfigFiles(t, filepath.Join(homeDir, ".aws"), "", "[profile default]\nregion = us-east-1")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	_, err := awsProvider.CheckAWSConfig(homeDir, "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Either configuration or credential path is missing")
 	assert.Contains(t, buf.String(), "Default AWS credentials file not found")
@@ -133,7 +128,7 @@ func TestCheckAWSConfig_DefaultConfigNotFound(t *testing.T) {
 	createAwsConfigFiles(t, filepath.Join(homeDir, ".aws"), "[default]\naws_access_key_id = test", "")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	_, err := awsProvider.CheckAWSConfig(homeDir, "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Either configuration or credential path is missing")
 	assert.Contains(t, buf.String(), "Default AWS config file not found")
@@ -144,7 +139,7 @@ func TestCheckAWSConfig_DefaultCredsReadError(t *testing.T) {
 	homeDir := tmpDir
 	awsDir := filepath.Join(homeDir, ".aws")
 	credsPath := filepath.Join(awsDir, "credentials")
-	configPath := filepath.Join(awsDir, "config")
+	_ = filepath.Join(awsDir, "config")
 
 	err := os.MkdirAll(awsDir, 0755)
 	require.NoError(t, err)
@@ -154,7 +149,7 @@ func TestCheckAWSConfig_DefaultCredsReadError(t *testing.T) {
 	createAwsConfigFiles(t, awsDir, "", "[profile default]\nregion = us-east-1") // Ensure config file exists
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Error checking default AWS credentials file")
 	assert.Empty(t, cfg.CredentialPath)
@@ -165,7 +160,7 @@ func TestCheckAWSConfig_DefaultConfigReadError(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := tmpDir
 	awsDir := filepath.Join(homeDir, ".aws")
-	credsPath := filepath.Join(awsDir, "credentials")
+	_ = filepath.Join(awsDir, "credentials")
 	configPath := filepath.Join(awsDir, "config")
 
 	err := os.MkdirAll(awsDir, 0755)
@@ -176,7 +171,7 @@ func TestCheckAWSConfig_DefaultConfigReadError(t *testing.T) {
 	defer os.Chmod(configPath, 0644) // Restore permissions for cleanup
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Error checking default AWS config file")
 	assert.Empty(t, cfg.ConfigPath)
@@ -194,7 +189,7 @@ func TestCheckAWSConfig_EnvCredsFileNotExist(t *testing.T) {
 	createAwsConfigFiles(t, awsDir, "[default]\naws_access_key_id = test", "[profile default]\nregion = us-east-1")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "")
 	require.NoError(t, err) // Should still succeed if default files exist
 	assert.Contains(t, buf.String(), "AWS_SHARED_CREDENTIALS_FILE environment variable points to a non-existent file")
 	assert.Len(t, cfg.CredentialPath, 1) // Should still have the default path
@@ -217,7 +212,7 @@ func TestCheckAWSConfig_EnvCredsFileReadError(t *testing.T) {
 	createAwsConfigFiles(t, awsDir, "[default]\naws_access_key_id = test", "[profile default]\nregion = us-east-1")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "")
 	require.NoError(t, err) // Should still succeed if default files exist
 	assert.Contains(t, buf.String(), "Error checking file specified by AWS_SHARED_CREDENTIALS_FILE")
 	assert.Len(t, cfg.CredentialPath, 1) // Should still have the default path
@@ -234,7 +229,7 @@ func TestCheckAWSConfig_EnvConfigFileNotExist(t *testing.T) {
 	createAwsConfigFiles(t, awsDir, "[default]\naws_access_key_id = test", "[profile default]\nregion = us-east-1")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "")
 	require.NoError(t, err) // Should still succeed if default files exist
 	assert.Contains(t, buf.String(), "AWS_CONFIG_FILE environment variable points to a non-existent file")
 	assert.Len(t, cfg.ConfigPath, 1) // Should still have the default path
@@ -257,7 +252,7 @@ func TestCheckAWSConfig_EnvConfigFileReadError(t *testing.T) {
 	createAwsConfigFiles(t, awsDir, "[default]\naws_access_key_id = test", "[profile default]\nregion = us-east-1")
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(homeDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "")
 	require.NoError(t, err) // Should still succeed if default files exist
 	assert.Contains(t, buf.String(), "Error checking file specified by AWS_CONFG_FILE")
 	assert.Len(t, cfg.ConfigPath, 1) // Should still have the default path
@@ -272,7 +267,7 @@ func TestCheckAWSConfig_NoPathsFound(t *testing.T) {
 	// Do not create .aws directory or any files
 
 	buf := captureSlogOutput()
-	cfg, err := CheckAWSConfig(tmpDir, "")
+	cfg, err := awsProvider.CheckAWSConfig(tmpDir, "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Either configuration or credential path is missing")
 	assert.Contains(t, buf.String(), "Default AWS credentials file not found")
@@ -288,22 +283,7 @@ func TestCheckAWSConfig_CustomProfileName(t *testing.T) {
 	os.MkdirAll(awsDir, 0755)
 	createAwsConfigFiles(t, awsDir, "[default]\naws_access_key_id = test", "[profile default]\nregion = us-east-1")
 
-	cfg, err := CheckAWSConfig(homeDir, "my-custom-profile")
+	cfg, err := awsProvider.CheckAWSConfig(homeDir, "my-custom-profile")
 	require.NoError(t, err)
 	assert.Equal(t, "my-custom-profile", cfg.ProfileName)
-}
-
-// Mock os.UserHomeDir for testing purposes
-var osUserHomeDir = os.UserHomeDir
-
-func init() {
-	// Override os.UserHomeDir in the init function for testing
-	// This ensures our mock is used when CheckAWSConfig calls it.
-	// This is a hacky way to mock global functions; ideally,
-	// CheckAWSConfig would take a dependency that can be injected.
-	// For this exercise, we'll use this approach for coverage.
-	originalUserHomeDir := os.UserHomeDir
-	os.UserHomeDir = func() (string, error) {
-		return originalUserHomeDir() // Call original by default
-	}
 }

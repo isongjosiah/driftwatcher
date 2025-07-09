@@ -10,7 +10,7 @@ import (
 
 var Config config.Config
 
-var rootCmd = &cobra.Command{
+var RootCmd = &cobra.Command{
 	Use:           "driftwatcher",
 	Aliases:       []string{"dw"},
 	Short:         "A CLI to help you compare two configurations and detect drift across a list of defined attributes",
@@ -22,9 +22,9 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute(ctx context.Context) {
-	rootCmd.SetUsageTemplate("hello world")
-	rootCmd.SetVersionTemplate("1.0")
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
+	RootCmd.SetUsageTemplate("hello world")
+	RootCmd.SetVersionTemplate("1.0")
+	if err := RootCmd.ExecuteContext(ctx); err != nil {
 		slog.Error("Failed to execute command", "error", err)
 	}
 }
@@ -32,9 +32,9 @@ func Execute(ctx context.Context) {
 func init() {
 	ctx := context.Background()
 	cobra.OnInitialize(Config.Init)
-	rootCmd.PersistentFlags().StringVar(&Config.LogLevel, "log-level", "info", "log level (debug, info, trace, warn, error)")
-	rootCmd.Flags().BoolP("version", "v", false, "Get the version of the DriftWatcher CLI")
+	RootCmd.PersistentFlags().StringVar(&Config.LogLevel, "log-level", "info", "log level (debug, info, trace, warn, error)")
+	RootCmd.Flags().BoolP("version", "v", false, "Get the version of the DriftWatcher CLI")
 
-	rootCmd.AddCommand(newDetectCmd(ctx, &Config).cmd)
-	rootCmd.AddCommand(newConfigCmd().cmd)
+	RootCmd.AddCommand(NewDetectCmd(ctx, &Config).Cmd)
+	RootCmd.AddCommand(newConfigCmd().cmd)
 }

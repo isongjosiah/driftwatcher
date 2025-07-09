@@ -17,18 +17,18 @@ import (
 )
 
 type detectCmd struct {
-	stateManager      statemanager.StateManagerI
-	platformProvider  provider.ProviderI
-	driftChecker      driftchecker.DriftChecker
-	reporter          reporter.OutputWriter
+	StateManager      statemanager.StateManagerI
+	PlatformProvider  provider.ProviderI
+	DriftChecker      driftchecker.DriftChecker
+	Reporter          reporter.OutputWriter
 	Provider          string
 	Resource          string
-	tfConfigPath      string
+	TfConfigPath      string
 	OutputPath        string
-	stateManagerType  string
+	StateManagerType  string
 	AttributesToTrack []string
 	ctx               context.Context
-	cmd               *cobra.Command
+	Cmd               *cobra.Command
 	cfg               *config.Config
 }
 
@@ -46,14 +46,14 @@ type detectCmd struct {
 // Returns:
 //
 //	A pointer to a detectCmd struct, which encapsulates the Cobra command and its dependencies.
-func newDetectCmd(ctx context.Context, cfg *config.Config) *detectCmd {
+func NewDetectCmd(ctx context.Context, cfg *config.Config) *detectCmd {
 	dc := &detectCmd{
 		// stateManager:     stateManager,
 		// platformProvider: platformProvider,
 		cfg: cfg,
 		ctx: ctx,
 	}
-	dc.cmd = &cobra.Command{
+	dc.Cmd = &cobra.Command{
 		Use:     "detect",
 		Aliases: []string{"d"},
 		Short:   "Detect drift between your configuration file and EC2 metadata instance from AWS",
@@ -72,28 +72,28 @@ For example:
 		RunE: dc.Run,
 	}
 
-	dc.cmd.Flags().StringVar(&dc.tfConfigPath, "configfile", "", "Path to the terraform configuration file")
-	dc.cmd.Flags().StringSliceVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.TfConfigPath, "configfile", "", "Path to the terraform configuration file")
+	dc.Cmd.Flags().StringSliceVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
 	// dc.cmd.Flags().StringVar(&dc.cfg.Profile.AWSConfig.ProfileName, "awsprofile", "default", "Attributes to check for drift")
-	dc.cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
-	dc.cmd.Flags().StringVar(&dc.Resource, "resource", "aws_instance", "Resource to check for drift")
-	dc.cmd.Flags().StringVar(&dc.OutputPath, "output-file", "", "Resource to check for drift")
-	dc.cmd.Flags().StringVar(&dc.stateManagerType, "state-manager", "terraform", "Resource to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
+	dc.Cmd.Flags().StringVar(&dc.Resource, "resource", "aws_instance", "Resource to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.OutputPath, "output-file", "", "Resource to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.StateManagerType, "state-manager", "terraform", "Resource to check for drift")
 
 	return dc
 }
 
 func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
-	if d.tfConfigPath == "" {
+	if d.TfConfigPath == "" {
 		slog.Error("Invalid state file path provided")
 		return fmt.Errorf("A state file is required")
 	}
 
-	switch d.stateManagerType {
+	switch d.StateManagerType {
 	case "terraform":
-		d.stateManager = terraform.NewTerraformManager()
+		d.StateManager = terraform.NewTerraformManager()
 	default:
-		return fmt.Errorf("%s statemanager not currently supported", d.stateManagerType)
+		return fmt.Errorf("%s statemanager not currently supported", d.StateManagerType)
 	}
 
 	switch d.Provider {
@@ -107,19 +107,19 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		d.platformProvider = provider
+		d.PlatformProvider = provider
 	default:
 		return fmt.Errorf("%s platform not currently supported", d.Provider)
 	}
-	d.driftChecker = driftchecker.NewDefaultDriftChecker()
+	d.DriftChecker = driftchecker.NewDefaultDriftChecker()
 
 	if d.OutputPath != "" {
-		d.reporter = reporter.NewFileReporter(d.OutputPath)
+		d.Reporter = reporter.NewFileReporter(d.OutputPath)
 	} else {
-		d.reporter = reporter.NewStdoutReporter()
+		d.Reporter = reporter.NewStdoutReporter()
 	}
 
-	return RunDriftDetection(d.ctx, d.tfConfigPath, d.Resource, d.AttributesToTrack, d.stateManager, d.platformProvider, d.driftChecker, d.reporter)
+	return RunDriftDetection(d.ctx, d.TfConfigPath, d.Resource, d.AttributesToTrack, d.StateManager, d.PlatformProvider, d.DriftChecker, d.Reporter)
 }
 
 type driftConfig struct {
