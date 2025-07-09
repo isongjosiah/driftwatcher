@@ -1,5 +1,6 @@
 package statemanager
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 import (
 	"context"
 	"encoding/json"
@@ -19,7 +20,12 @@ type StateContent struct {
 }
 
 type ConfigDetails struct {
-	Path string `json:"path,omitempty"`
+	Path          string `json:"path,omitempty"`
+	Bucket        string `json:"bucket,omitempty"`
+	Region        string `json:"region,omitempty"`
+	Encrypt       string `json:"encrypt,omitempty"`
+	Key           string `json:"key,omitempty"`
+	DynamoDBTable string `json:"dynamo_db_table,omitempty"`
 }
 
 type BackendConfig struct {
@@ -43,6 +49,10 @@ func (s StateResource) ResourceType() string {
 }
 
 func (s StateResource) AttributeValue(attribute string) (string, error) {
+	if len(s.Instances) == 0 {
+		return "", fmt.Errorf("No Instance for resource")
+	}
+
 	data, ok := s.Instances[0].Attributes[attribute]
 	if !ok {
 		return "", fmt.Errorf("attribute does not exist")
@@ -60,6 +70,7 @@ type ResourceInstance struct {
 	Dependencies  []string       `json:"dependencies,omitempty"`
 }
 
+//counterfeiter:generate . StateManagerI
 type StateManagerI interface {
 	ParseStateFile(ctx context.Context, statePath string) (StateContent, error)
 	RetrieveResources(ctx context.Context, content StateContent, resourceType string) ([]StateResource, error)

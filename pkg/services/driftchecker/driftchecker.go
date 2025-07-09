@@ -1,5 +1,6 @@
 package driftchecker
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 import (
 	"context"
 	"drift-watcher/pkg/services/provider"
@@ -43,6 +44,7 @@ type DriftReport struct {
 	Status       string      `json:"status,omitempty"`
 }
 
+//counterfeiter:generate . DriftChecker
 type DriftChecker interface {
 	CompareStates(ctx context.Context, liveData provider.InfrastructureResourceI, desiredState statemanager.StateResource, attributesToTrack []string) (*DriftReport, error)
 }

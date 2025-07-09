@@ -35,7 +35,7 @@ func (t *TerraformStateManager) ParseStateFile(ctx context.Context, statePath st
 		return out, err
 	}
 
-	statecontent, err := convertTerraformStateToStateContent(*t.parser.State)
+	statecontent, err := ConvertTerraformStateToStateContent(*t.parser.State)
 	if err != nil {
 		return out, err
 	}
@@ -44,7 +44,7 @@ func (t *TerraformStateManager) ParseStateFile(ctx context.Context, statePath st
 }
 
 // ConvertTerraformStateToStateContent converts a TerraformState object to a StateContent object.
-func convertTerraformStateToStateContent(tfState TerraformState) (statemanager.StateContent, error) {
+func ConvertTerraformStateToStateContent(tfState TerraformState) (statemanager.StateContent, error) {
 	newState := statemanager.StateContent{
 		StateVersion:  strconv.Itoa(tfState.Version), // Convert int to string
 		Tool:          statemanager.TerraformTool,

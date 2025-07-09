@@ -14,7 +14,7 @@ import (
 	"github.com/zclconf/go-cty/cty/function"
 )
 
-func stateFileFromConfig(configFilePath string) (string, error) {
+func StateFileFromConfig(configFilePath string) (string, error) {
 	defaultStatePath := ""
 	parser := hclparse.NewParser()
 
@@ -54,7 +54,7 @@ func stateFileFromConfig(configFilePath string) (string, error) {
 			}
 			for _, backendBlock := range content.Blocks {
 				if backendBlock.Type == "backend" {
-					config, err := parseBackendBlock(backendBlock)
+					config, err := ParseBackendBlock(backendBlock)
 					if err != nil {
 						return "", err
 					}
@@ -78,13 +78,13 @@ func stateFileFromConfig(configFilePath string) (string, error) {
 
 // BackendConfig represents the parsed backend configuration
 type BackendConfig struct {
-	Type      string                 `json:"type"`
+	Type      string         `json:"type"`
 	Config    map[string]any `json:"config"`
-	Workspace string                 `json:"workspace,omitempty"`
+	Workspace string         `json:"workspace,omitempty"`
 }
 
-// parseBackendBlock parses a specific backend block
-func parseBackendBlock(backendBlock *hcl.Block) (*statemanager.BackendConfig, error) {
+// ParseBackendBlock parses a specific backend block
+func ParseBackendBlock(backendBlock *hcl.Block) (*statemanager.BackendConfig, error) {
 	if len(backendBlock.Labels) == 0 {
 		return nil, fmt.Errorf("backend block missing type label")
 	}
@@ -113,7 +113,7 @@ func parseBackendBlock(backendBlock *hcl.Block) (*statemanager.BackendConfig, er
 		}
 
 		// Convert cty.Value to Go any
-		goValue, err := ctyValueToGo(value)
+		goValue, err := CtyValueToGo(value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert value for %s: %w", name, err)
 		}
@@ -135,8 +135,8 @@ func parseBackendBlock(backendBlock *hcl.Block) (*statemanager.BackendConfig, er
 	}, nil
 }
 
-// ctyValueToGo converts cty.Value to Go any
-func ctyValueToGo(val cty.Value) (any, error) {
+// CtyValueToGo converts cty.Value to Go any
+func CtyValueToGo(val cty.Value) (any, error) {
 	if val.IsNull() {
 		return nil, nil
 	}
@@ -160,7 +160,7 @@ func ctyValueToGo(val cty.Value) (any, error) {
 		var result []any
 		for it := val.ElementIterator(); it.Next(); {
 			_, elemVal := it.Element()
-			goVal, err := ctyValueToGo(elemVal)
+			goVal, err := CtyValueToGo(elemVal)
 			if err != nil {
 				return nil, err
 			}
@@ -173,7 +173,7 @@ func ctyValueToGo(val cty.Value) (any, error) {
 		result := make(map[string]any)
 		for it := val.ElementIterator(); it.Next(); {
 			key, elemVal := it.Element()
-			goVal, err := ctyValueToGo(elemVal)
+			goVal, err := CtyValueToGo(elemVal)
 			if err != nil {
 				return nil, err
 			}

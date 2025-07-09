@@ -95,7 +95,7 @@ func (p *StateParser) ParseFile(filePath string) error {
 	ext := filepath.Ext(filePath)
 	switch ext {
 	case ".tf":
-		filePath, err = stateFileFromConfig(filePath)
+		filePath, err = StateFileFromConfig(filePath)
 		if err != nil {
 			return err
 		}
