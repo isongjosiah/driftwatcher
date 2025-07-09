@@ -12,14 +12,14 @@ import (
 
 // CsvReporter implements OutputWriter to write reports to a CSV file.
 type CsvReporter struct {
-	outputFile string
+	OutputFile string
 }
 
 // NewCsvReporter creates a new CsvReporter instance.
 // outputFile: The path to the CSV file where the report will be written.
 func NewCsvReporter(outputFile string) *CsvReporter {
 	return &CsvReporter{
-		outputFile: outputFile,
+		OutputFile: outputFile,
 	}
 }
 
@@ -27,16 +27,16 @@ func NewCsvReporter(outputFile string) *CsvReporter {
 // Each row in the CSV represents a single DriftItem, or a summary row if no drift.
 func (c *CsvReporter) WriteReport(ctx context.Context, report *driftchecker.DriftReport) error {
 	// Ensure the output directory exists
-	outputDir := filepath.Dir(c.outputFile)
+	outputDir := filepath.Dir(c.OutputFile)
 	if outputDir != "" {
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return fmt.Errorf("failed to create output directory %s for CSV report: %w", outputDir, err)
 		}
 	}
 
-	file, err := os.Create(c.outputFile)
+	file, err := os.Create(c.OutputFile)
 	if err != nil {
-		return fmt.Errorf("failed to create CSV output file %s: %w", c.outputFile, err)
+		return fmt.Errorf("failed to create CSV output file %s: %w", c.OutputFile, err)
 	}
 	defer file.Close() // Ensure the file is closed after function returns
 
@@ -98,6 +98,6 @@ func (c *CsvReporter) WriteReport(ctx context.Context, report *driftchecker.Drif
 		}
 	}
 
-	fmt.Printf("Drift report successfully written to: %s (CSV format)\n", c.outputFile)
+	fmt.Printf("Drift report successfully written to: %s (CSV format)\n", c.OutputFile)
 	return nil
 }

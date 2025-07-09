@@ -10,14 +10,14 @@ import (
 )
 
 type FileReporter struct {
-	outputFile string
+	OutputFile string
 }
 
 // NewFileReporter creates a new FileReporter instance.
 // outputFile: The path to the file where the report will be written.
 func NewFileReporter(outputFile string) *FileReporter {
 	return &FileReporter{
-		outputFile: outputFile,
+		OutputFile: outputFile,
 	}
 }
 
@@ -25,7 +25,7 @@ func NewFileReporter(outputFile string) *FileReporter {
 // If the file does not exist, it will be created. If it exists, its content will be truncated.
 func (f *FileReporter) WriteReport(ctx context.Context, report *driftchecker.DriftReport) error {
 	// Ensure the output directory exists
-	outputDir := filepath.Dir(f.outputFile)
+	outputDir := filepath.Dir(f.OutputFile)
 	if outputDir != "" {
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
@@ -37,11 +37,11 @@ func (f *FileReporter) WriteReport(ctx context.Context, report *driftchecker.Dri
 		return fmt.Errorf("failed to marshal drift report to JSON: %w", err)
 	}
 
-	err = os.WriteFile(f.outputFile, reportBytes, 0644)
+	err = os.WriteFile(f.OutputFile, reportBytes, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write drift report to file %s: %w", f.outputFile, err)
+		return fmt.Errorf("failed to write drift report to file %s: %w", f.OutputFile, err)
 	}
 
-	fmt.Printf("Drift report successfully written to: %s\n", f.outputFile)
+	fmt.Printf("Drift report successfully written to: %s\n", f.OutputFile)
 	return nil
 }

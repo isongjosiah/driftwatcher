@@ -1,7 +1,5 @@
 package aws
 
-import "strings"
-
 // EC2Attributes defines string constants for various EC2 instance attributes
 // that can be tracked for drift detection.
 type EC2Attributes string
@@ -58,45 +56,3 @@ const (
 	SGName        EC2Attributes = "name"
 	SGVPCID       EC2Attributes = "vpc_id"
 )
-
-// IsValidEC2Attribute checks if the given string corresponds to a valid EC2Attributes constant
-// using a single switch case with multiple values. It returns true if the string is a valid attribute, false otherwise.
-// NOTE: maps might be more performant when this list grows
-func IsValidEC2Attribute(attr string) bool {
-	switch EC2Attributes(strings.ToLower(attr)) {
-	case
-		EC2AMIID,
-		EC2INSTANCETYPE,
-		EC2INSTANCEID,
-		EC2KEYNAME,
-		EC2AvailabilityZone,
-		EC2TENANCY,
-
-		EC2SUBNETID,
-		EC2AssociatePublicIPAddress,
-		EC2PrivateIP,
-		EC2PublicIP,
-		EC2SourceDestCheck,
-
-		EC2RootBlockDevice,
-		EC2EBSBlockDevice,
-		EC2VolumeSize,
-		EC2VolumeType,
-		EC2VolumeEncrypted,
-		EC2DeleteOnTermination,
-
-		EC2MetadataOptions,
-		EC2UserData,
-
-		EC2InstanceState,
-
-		SGDescription,
-		SGEgress,
-		SGIngress,
-		SGName,
-		SGVPCID:
-		return true
-	default:
-		return false
-	}
-}
