@@ -3,164 +3,197 @@ package cmd
 import (
 	"context"
 	"drift-watcher/config"
-	"drift-watcher/pkg/provider"
-	"drift-watcher/pkg/provider/aws"
-	"drift-watcher/pkg/terraform"
-	"encoding/json"
-	"errors"
+	"drift-watcher/pkg/services/driftchecker"
+	"drift-watcher/pkg/services/provider"
+	"drift-watcher/pkg/services/provider/aws"
+	"drift-watcher/pkg/services/reporter"
+	"drift-watcher/pkg/services/statemanager"
+	"drift-watcher/pkg/services/statemanager/terraform"
 	"fmt"
-	"log"
 	"log/slog"
-	"os"
 	"sync"
 
 	"github.com/spf13/cobra"
 )
 
 type detectCmd struct {
-	tfConfigPath      string
-	OutputPath        string
-	ctx               context.Context
-	AttributesToTrack []string
+	stateManager      statemanager.StateManagerI
+	platformProvider  provider.ProviderI
+	driftChecker      driftchecker.DriftChecker
+	reporter          reporter.OutputWriter
 	Provider          string
 	Resource          string
+	tfConfigPath      string
+	OutputPath        string
+	stateManagerType  string
+	AttributesToTrack []string
+	ctx               context.Context
 	cmd               *cobra.Command
 	cfg               *config.Config
 }
 
-func newDetectCmd(cfg *config.Config) *detectCmd {
-	config, err := CheckAWSConfig("")
-	if err != nil {
-		slog.Error("Failed to parse aws credentials")
-		os.Exit(1)
-	}
-	cfg.Profile.AWSConfig = &config
-
+// newDetectCmd creates and configures the 'detect' Cobra command.
+// This command is responsible for identifying configuration drift between
+// a Terraform configuration file and the live state of resources in a cloud environment (e.g., AWS EC2).
+//
+// Parameters:
+//
+//	ctx: The context for the command's execution, allowing for cancellation or timeouts.
+//	cfg: The application's global configuration, containing settings like AWS profile.
+//	stateManager: An interface for managing and accessing state information (e.g., Terraform state).
+//	platformProvider: An interface for interacting with the cloud platform (e.g., AWS API calls).
+//
+// Returns:
+//
+//	A pointer to a detectCmd struct, which encapsulates the Cobra command and its dependencies.
+func newDetectCmd(ctx context.Context, cfg *config.Config) *detectCmd {
 	dc := &detectCmd{
-		tfConfigPath:      "",
-		AttributesToTrack: []string{},
-		Provider:          "",
-		Resource:          "",
-		cmd:               &cobra.Command{},
-		cfg:               cfg,
-		ctx:               context.Background(),
+		// stateManager:     stateManager,
+		// platformProvider: platformProvider,
+		cfg: cfg,
+		ctx: ctx,
 	}
 	dc.cmd = &cobra.Command{
 		Use:     "detect",
 		Aliases: []string{"d"},
-		Short:   "Detect drift between your configurationa file and EC2 metadata instance from AWS",
-		Long:    "Hello world",
-		RunE:    dc.Run,
+		Short:   "Detect drift between your configuration file and EC2 metadata instance from AWS",
+		Long: `This command is designed to identify drift between your infrastructure-as-code (IaC) and your live AWS environment. Specifically, it compares the specified attributes within your Terraform configuration file (e.g., instance type, AMI ID) against the actual metadata of your running EC2 instances. By highlighting these differences, you can quickly spot unauthorized changes, misconfigurations, or manual modifications that deviate from your desired state, ensuring your infrastructure remains consistent and compliant.
+
+For example:
+  # Check for instance type drift using a specific config file
+  yourcommand detect --configfile /path/to/your/main.tf --attributes instance_type
+
+  # Check multiple attributes and specify an AWS profile
+  yourcommand detect --configfile /path/to/your/main.tf --attributes instance_type,ami --awsprofile my-dev-profile
+
+  # Output the drift report to a file
+  yourcommand detect --configfile /path/to/your/main.tf --output-file drift_report.json
+`,
+		RunE: dc.Run,
 	}
 
 	dc.cmd.Flags().StringVar(&dc.tfConfigPath, "configfile", "", "Path to the terraform configuration file")
 	dc.cmd.Flags().StringSliceVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
-	dc.cmd.Flags().StringVar(&dc.cfg.Profile.AWSConfig.ProfileName, "awsprofile", "default", "Attributes to check for drift")
+	// dc.cmd.Flags().StringVar(&dc.cfg.Profile.AWSConfig.ProfileName, "awsprofile", "default", "Attributes to check for drift")
 	dc.cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
-	dc.cmd.Flags().StringVar(&dc.Resource, "resource", "ec2", "Resource to check for drift")
+	dc.cmd.Flags().StringVar(&dc.Resource, "resource", "aws_instance", "Resource to check for drift")
 	dc.cmd.Flags().StringVar(&dc.OutputPath, "output-file", "", "Resource to check for drift")
+	dc.cmd.Flags().StringVar(&dc.stateManagerType, "state-manager", "terraform", "Resource to check for drift")
 
 	return dc
 }
 
 func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 	if d.tfConfigPath == "" {
-		slog.Error("Invalid configuration file path provided")
-		os.Exit(1)
+		slog.Error("Invalid state file path provided")
+		return fmt.Errorf("A state file is required")
 	}
 
-	if _, err := os.Stat(d.tfConfigPath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			slog.Error(fmt.Sprintf("file %s does not exist", d.tfConfigPath))
-		} else {
-			slog.Error(fmt.Sprintf("failed to read file %s", d.tfConfigPath))
-		}
-		os.Exit(1)
+	switch d.stateManagerType {
+	case "terraform":
+		d.stateManager = terraform.NewTerraformManager()
+	default:
+		return fmt.Errorf("%s statemanager not currently supported", d.stateManagerType)
 	}
-
-	parsedContent, err := terraform.ParseTerraformFile(d.tfConfigPath)
-	if err != nil {
-		slog.Error("Failed to parse terraform configuratio file", "error", err.Error())
-		os.Exit(1)
-	}
-	resources, err := parsedContent.GetResources()
-	if err != nil {
-		slog.Error("Failed to retrieve resources information from parsed configuration file", "error", err.Error())
-		os.Exit(1)
-	}
-
-	var providerImpl provider.ProviderI
 
 	switch d.Provider {
 	case "aws":
-		providerImpl, err = aws.NewAWSProvider(d.cfg)
+		config, err := aws.CheckAWSConfig("", "hiyr")
 		if err != nil {
-			slog.Error("Failed to setup aws provide", "error", err.Error())
-			os.Exit(1)
+			return err
 		}
+
+		provider, err := aws.NewAWSProvider(&config)
+		if err != nil {
+			return err
+		}
+		d.platformProvider = provider
 	default:
-		slog.Error(d.Provider + " provider is not supported")
-		os.Exit(1)
+		return fmt.Errorf("%s platform not currently supported", d.Provider)
+	}
+	d.driftChecker = driftchecker.NewDefaultDriftChecker()
+
+	if d.OutputPath != "" {
+		d.reporter = reporter.NewFileReporter(d.OutputPath)
+	} else {
+		d.reporter = reporter.NewStdoutReporter()
+	}
+
+	return RunDriftDetection(d.ctx, d.tfConfigPath, d.Resource, d.AttributesToTrack, d.stateManager, d.platformProvider, d.driftChecker, d.reporter)
+}
+
+type driftConfig struct {
+	resource          string
+	outputPath        string
+	attributesToTrack string
+}
+
+func RunDriftDetection(
+	ctx context.Context,
+	tfConfigPath string,
+	resourceType string,
+	attributesToTrack []string,
+	stateManager statemanager.StateManagerI,
+	platformProvider provider.ProviderI,
+	driftChecker driftchecker.DriftChecker,
+	reporter reporter.OutputWriter,
+) error {
+	stateContent, err := stateManager.ParseStateFile(ctx, tfConfigPath)
+	if err != nil {
+		slog.Error("Failed to parse desired state information from the state file", "error", err)
+		return fmt.Errorf("failed to parse state file: %w", err)
+	}
+
+	resources, err := stateManager.RetrieveResources(ctx, stateContent, resourceType)
+	if err != nil {
+		slog.Error("Failed to retrieve resources from state", "error", err)
+		return fmt.Errorf("failed to retrieve resources: %w", err)
+	}
+
+	if len(resources) == 0 {
+		slog.Info("No resources found to check for drift.")
+		return nil
 	}
 
 	wg := &sync.WaitGroup{}
 	maxWorker := 5
-	channel := make(chan terraform.Resource, maxWorker)
+	channel := make(chan statemanager.StateResource, maxWorker)
 
-	for range 5 {
+	for range maxWorker {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
 			for resource := range channel {
-
-				var filterKey, filterValue string
-				switch parsedContent.Type {
-				case "hcl":
-					filterKey = "tag:Name"
-					filterValue = resource.Name
-				case "state":
-					filterKey = "instance-id"
-					filterValue = resource.Instances[0].Attributes.ID
-				}
-
-				filter := map[string]string{
-					filterKey: filterValue,
-				}
-
-				infrastructureData, err := providerImpl.InfrastructreMetadata(d.ctx, d.Resource, filter)
+				infrastructureResource, err := platformProvider.InfrastructreMetadata(ctx, resourceType, resource)
 				if err != nil {
-					slog.Error("Failed to retrieve infrastructure information", "error", err.Error())
-					os.Exit(1)
+					slog.Error("Failed to retrieve infrastructure metadata", "resource_id", resource.Name, "error", err)
+					continue
 				}
-				report, err := providerImpl.CompareActiveAndDesiredState(d.ctx, d.Resource, infrastructureData, resource, d.AttributesToTrack)
+
+				// Compare the desired state (from state file) with the actual infrastructure state.
+				report, err := driftChecker.CompareStates(ctx, infrastructureResource, resource, attributesToTrack)
 				if err != nil {
-					slog.Error("Failed to compare infrastructure state", "error", err.Error())
-				}
-				if d.OutputPath != "" {
-				} else {
-					// Marshal with 4 spaces for indentation
-					prettyJSON, err := json.MarshalIndent(report, "", "    ")
-					if err != nil {
-						log.Fatalf("Error marshaling JSON: %v", err)
-					}
-
-					fmt.Println(string(prettyJSON))
+					slog.Error("Failed to compare states for resource", "resource_id", resource.Name, "error", err)
+					continue
 				}
 
+				// Write the drift report.
+				if err := reporter.WriteReport(ctx, report); err != nil {
+					slog.Error("Failed to write report for resource", "resource_id", resource.Name, "error", err)
+					continue
+				}
 			}
 		}()
 	}
+
 	for _, resource := range resources {
-		// NOTE: focus on aws instances for now.
-		// we are assuming that aws library is concurrency
-		// safe - confirm this
-		if resource.Type == "aws_instance" {
-			channel <- resource
-		}
+		channel <- resource
 	}
+
 	close(channel)
 
 	wg.Wait()
+
+	slog.Info("Drift detection completed.")
 	return nil
 }

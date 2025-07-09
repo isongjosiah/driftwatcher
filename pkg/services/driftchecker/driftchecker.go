@@ -1,22 +1,11 @@
-package provider
+package driftchecker
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 import (
 	"context"
-	"drift-watcher/pkg/terraform"
+	"drift-watcher/pkg/services/provider"
+	"drift-watcher/pkg/services/statemanager"
 	"time"
 )
-
-// InfrastructureResource represents the metadata of an infrastructure resource.
-// It includes common fields like ID, Type, Name, Region, and dynamic Attributes.
-type InfrastructureResource struct {
-	ID         string            `json:"id"`
-	Type       string            `json:"type"`
-	Name       string            `json:"name"`
-	Region     string            `json:"region"`
-	Tags       map[string]string `json:"tags"`
-	Attributes map[string]any    `json:"attributes"`
-}
 
 type DrfitItemValue = string
 
@@ -54,10 +43,6 @@ type DriftReport struct {
 	Status       string      `json:"status,omitempty"`
 }
 
-//counterfeiter:generate . ProviderI
-type ProviderI interface {
-	InfrastructreMetadata(ctx context.Context, resourceType string, filters map[string]string) (*InfrastructureResource, error)
-	CompareActiveAndDesiredState(ctx context.Context, resourceType string, liveState *InfrastructureResource, desiredState terraform.Resource, attributesToTrack []string) (DriftReport, error)
+type DriftChecker interface {
+	CompareStates(ctx context.Context, liveData provider.InfrastructureResourceI, desiredState statemanager.StateResource, attributesToTrack []string) (*DriftReport, error)
 }
-
-type AttributeMapping = map[string]string

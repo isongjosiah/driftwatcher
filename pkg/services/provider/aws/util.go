@@ -1,24 +1,18 @@
-package cmd
+package aws
 
 import (
-	"context"
 	"drift-watcher/config"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
-
-var Config config.Config
 
 // CheckAWSConfig checks for the presence of AWS configuration files
 // or environment variables that point to them.
 // It returns true if a configuration file is found, along with the path to the first one found.
 // It logs debug messages indicating where it's looking and what it finds.
-func CheckAWSConfig(homeDir string) (config.AWSConfig, error) {
+func CheckAWSConfig(homeDir string, profile string) (config.AWSConfig, error) {
 	configDetail := config.AWSConfig{
 		CredentialPath: []string{},
 		ConfigPath:     []string{},
@@ -103,71 +97,10 @@ func CheckAWSConfig(homeDir string) (config.AWSConfig, error) {
 		return configDetail, fmt.Errorf("Either configuration or credential path is missing")
 	}
 
+	configDetail.ProfileName = profile
+	if configDetail.ProfileName == "" {
+		configDetail.ProfileName = "default"
+	}
+
 	return configDetail, nil
-}
-
-func rootAwsCheck() string {
-	_, err := CheckAWSConfig("")
-	if err != nil {
-		return "Before using the CLI yo would need to setup your AWS profile"
-	}
-	return ""
-}
-
-var rootCmd = &cobra.Command{
-	Use:           "driftwatcher",
-	Aliases:       []string{"dw"},
-	Short:         "A CLI to help you compare two configurations and detect drift across a list of defined attributes",
-	Long:          fmt.Sprintf("CLI to interact with driftwatcher %s", rootAwsCheck()),
-	Version:       "1.0", // TODO: make dynamic
-	SilenceErrors: true,
-	SilenceUsage:  true,
-	Run:           func(cmd *cobra.Command, args []string) {},
-}
-
-func Execute(ctx context.Context) {
-	rootCmd.SetUsageTemplate("hello world")
-	rootCmd.SetVersionTemplate("1.0")
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		errString := err.Error()
-
-		switch {
-		default:
-			fmt.Println(errString)
-		}
-
-		os.Exit(1)
-	}
-}
-
-var keysToReBind []string
-
-// ReBindKeys applies the value found in viper config to the cobra flag when viper has a value (possibly from env)
-func ReBindKeys() {
-	for _, k := range keysToReBind {
-		if viper.IsSet(k) {
-			rootCmd.Flags().Set(k, viper.GetString(k))
-		}
-	}
-}
-
-// wraps viper's bindEnv and ensures we write values back to the Config
-// value precedence is:
-// 1. flag
-// 2. env
-// 3. default
-func bindEnv(key, envKey string) {
-	viper.BindPFlag(key, rootCmd.PersistentFlags().Lookup(key))
-	viper.BindEnv(key, envKey)
-	keysToReBind = append(keysToReBind, key)
-}
-
-func init() {
-	ctx := context.Background()
-	cobra.OnInitialize(Config.Init, ReBindKeys)
-	rootCmd.PersistentFlags().StringVar(&Config.LogLevel, "log-level", "info", "log level (debug, info, trace, warn, error)")
-	rootCmd.Flags().BoolP("version", "v", false, "Get the version of the DriftWatcher CLI")
-
-	rootCmd.AddCommand(newDetectCmd(ctx, &Config).cmd)
-	rootCmd.AddCommand(newConfigCmd().cmd)
 }

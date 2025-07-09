@@ -14,7 +14,6 @@ const (
 	EC2KEYNAME          EC2Attributes = "key_name"
 	EC2AvailabilityZone EC2Attributes = "availability_zone"
 	EC2TENANCY          EC2Attributes = "tenancy"
-	EC2MONITORING       EC2Attributes = "monitoring"
 	EC2CPUCORECOUNT     EC2Attributes = "cpu_core_count"
 	EC2CPUTHREADPERCORE EC2Attributes = "cpu_thread_per_core"
 	EC2EbsOptimzied     EC2Attributes = "ebs_optimized"
@@ -48,7 +47,6 @@ const (
 	// Metadata & User Data
 	EC2MetadataOptions EC2Attributes = "metadata_options"
 	EC2UserData        EC2Attributes = "user_data"
-	EC2UserDataBase64  EC2Attributes = "user_data_base64"
 
 	// State
 	EC2InstanceState EC2Attributes = "instance_state"
@@ -73,7 +71,6 @@ func IsValidEC2Attribute(attr string) bool {
 		EC2KEYNAME,
 		EC2AvailabilityZone,
 		EC2TENANCY,
-		EC2MONITORING,
 
 		EC2SUBNETID,
 		EC2AssociatePublicIPAddress,
@@ -90,7 +87,6 @@ func IsValidEC2Attribute(attr string) bool {
 
 		EC2MetadataOptions,
 		EC2UserData,
-		EC2UserDataBase64,
 
 		EC2InstanceState,
 

@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-type IConfig interface{}
+type IConfig any
 
 // Config holds the configuration settings for the drift watcher.
 // It encapsulates various parameters that control the tool's behavior,
