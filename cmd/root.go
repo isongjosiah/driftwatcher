@@ -129,14 +129,7 @@ func Execute(ctx context.Context) {
 	rootCmd.SetUsageTemplate("hello world")
 	rootCmd.SetVersionTemplate("1.0")
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		errString := err.Error()
-
-		switch {
-		default:
-			fmt.Println(errString)
-		}
-
-		os.Exit(1)
+		slog.Error("Failed to execute command", "error", err)
 	}
 }
 

@@ -23,26 +23,25 @@ type Config struct {
 	Profile     Profile
 }
 
-// GetConfigFolder retrieves the folder where the profiles file is stored
+// GetConfigFolder retrieves the folder where the profiles file is stored.
 // It searches for the xdg environment path first and will secondarily
-// place it in the home directory
-func (c *Config) GetConfigFolder(xdgPath string) string {
+// place it in the home directory. It returns the config folder path and an error, if any.
+func (c *Config) GetConfigFolder(xdgPath string) (string, error) {
 	configPath := xdgPath
 
 	if configPath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			// Return the error directly
+			return "", fmt.Errorf("failed to get user home directory: %w", err)
 		}
-
 		configPath = filepath.Join(home, ".config")
 	}
 
 	driftWatcherConfigPath := filepath.Join(configPath, "driftwatcher")
-	slog.Debug("Using profiles file", "prefix", "config.Config.GetProfilesFolder", "path", driftWatcherConfigPath)
+	slog.Debug("Using profiles file", "prefix", "config.Config.GetConfigFolder", "path", driftWatcherConfigPath)
 
-	return driftWatcherConfigPath
+	return driftWatcherConfigPath, nil
 }
 
 func (c *Config) Init() {
@@ -77,7 +76,10 @@ func (c *Config) Init() {
 	if c.ProfileFile != "" {
 		viper.SetConfigFile(c.ProfileFile)
 	} else {
-		configFolder := c.GetConfigFolder(os.Getenv("XDG_CONFIG_HOME"))
+		configFolder, err := c.GetConfigFolder(os.Getenv("XDG_CONFIG_HOME"))
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
 		configFile := filepath.Join(configFolder, "config.toml")
 		c.ProfileFile = configFile
 		viper.SetConfigType("toml")
@@ -86,7 +88,7 @@ func (c *Config) Init() {
 
 		// Try to change permissions manually, because we used to create files
 		// with default permissions (0644)
-		err := os.Chmod(configFile, os.FileMode(0600))
+		err = os.Chmod(configFile, os.FileMode(0600))
 		if err != nil && !os.IsNotExist(err) {
 			log.Fatalf("%s", err)
 		}
