@@ -6,6 +6,7 @@ import (
 	"drift-watcher/pkg/services/statemanager"
 )
 
+//counterfeiter:generate . InfrastructureResourceI
 type InfrastructureResourceI interface {
 	ResourceType() string
 	AttributeValue(attribute string) (string, error)

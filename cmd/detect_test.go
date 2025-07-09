@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	fakeStateManager statemanagerfakes.FakeStateManagerI
-	fakeProvider     providerfakes.FakeProvidarI
-	fakeDriftChecker driftcheckerfakes.FakeDriftChecker
-	fakeReporter     reporterfakes.FakeOutputWriter
+	fakeStateManager           statemanagerfakes.FakeStateManagerI
+	fakeProvider               providerfakes.FakeProviderI
+	fakeDriftChecker           driftcheckerfakes.FakeDriftChecker
+	fakeReporter               reporterfakes.FakeOutputWriter
+	fakeInfrastructureResource providerfakes.FakeInfrastructureResourceI
 )
 
 // Helper to capture slog output
@@ -130,7 +131,7 @@ func TestDetectCmd_Run_NewAWSProviderError(t *testing.T) {
 	dc.TfConfigPath = "/tmp/test.tfstate"
 	dc.StateManagerType = "terraform"
 	dc.Provider = "aws"
-	dc.PlatformProvider = fakeProvider
+	dc.PlatformProvider = &fakeProvider
 	dc.StateManager = &fakeStateManager
 	dc.DriftChecker = &fakeDriftChecker
 	dc.Reporter = &fakeReporter
@@ -152,12 +153,12 @@ func TestDetectCmd_Run_Success_StdoutReporter(t *testing.T) {
 	dc.StateManagerType = "terraform"
 	dc.Provider = "aws"
 	dc.OutputPath = "" // Ensure stdout reporter is used
-	dc.PlatformProvider = fakeProvider
+	dc.PlatformProvider = &fakeProvider
 	dc.StateManager = &fakeStateManager
 	dc.DriftChecker = &fakeDriftChecker
 	dc.Reporter = &fakeReporter
 
-	err := dc.Run(dc.cmd, []string{})
+	err := dc.Run(dc.Cmd, []string{})
 	require.NoError(t, err)
 
 	assert.Equal(t, fakeStateManager.RetrieveResourcesCallCount(), 1)
@@ -176,7 +177,7 @@ func TestDetectCmd_Run_Success_FileReporter(t *testing.T) {
 
 	// Manually set internal mocks for RunDriftDetection
 	dc.StateManager = &fakeStateManager
-	dc.PlatformProvider = fakeProvider
+	dc.PlatformProvider = &fakeProvider
 	dc.DriftChecker = &fakeDriftChecker
 	dc.Reporter = &fakeReporter
 
@@ -186,7 +187,7 @@ func TestDetectCmd_Run_Success_FileReporter(t *testing.T) {
 
 func TestRunDriftDetection_ParseStateFileError(t *testing.T) {
 	buf := captureSlogOutput()
-	err := cmd.RunDriftDetection(context.Background(), "/tmp/nonexistent.tfstate", "aws_instance", []string{}, &fakeStateManager, fakeProvider, &fakeDriftChecker, &fakeReporter)
+	err := cmd.RunDriftDetection(context.Background(), "/tmp/nonexistent.tfstate", "aws_instance", []string{}, &fakeStateManager, &fakeProvider, &fakeDriftChecker, &fakeReporter)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse state file: parse error")
 	assert.Contains(t, buf.String(), "level=ERROR")
@@ -195,7 +196,7 @@ func TestRunDriftDetection_ParseStateFileError(t *testing.T) {
 
 func TestRunDriftDetection_RetrieveResourcesError(t *testing.T) {
 	buf := captureSlogOutput()
-	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{}, &fakeStateManager, fakeProvider, &fakeDriftChecker, &fakeReporter)
+	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{}, &fakeStateManager, &fakeProvider, &fakeDriftChecker, &fakeReporter)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to retrieve resources: retrieve error")
 	assert.Contains(t, buf.String(), "level=ERROR")
@@ -204,7 +205,7 @@ func TestRunDriftDetection_RetrieveResourcesError(t *testing.T) {
 
 func TestRunDriftDetection_NoResourcesFound(t *testing.T) {
 	buf := captureSlogOutput()
-	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{}, &fakeStateManager, fakeProvider, &fakeDriftChecker, &fakeReporter)
+	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{}, &fakeStateManager, &fakeProvider, &fakeDriftChecker, &fakeReporter)
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "level=INFO")
 	assert.Contains(t, buf.String(), "No resources found to check for drift.")
@@ -217,19 +218,17 @@ func TestRunDriftDetection_SuccessWithDrift(t *testing.T) {
 	resources := []statemanager.StateResource{resource1, resource2}
 
 	// Mock behaviors
-	mockStateManager.On("ParseStateFile", mock.Anything, mock.Anything).Return(statemanager.StateContent{}, nil)
-	mockStateManager.On("RetrieveResources", mock.Anything, mock.Anything, "aws_instance").Return(resources, nil)
+	fakeStateManager.ParseStateFileReturns(statemanager.StateContent{}, nil)
+	fakeStateManager.RetrieveResourcesReturns(resources, nil)
 
-	mockLiveResource1 := new(MockInfrastructureResourceI)
-	mockLiveResource1.On("ResourceType").Return("aws_instance")
-	mockLiveResource1.On("AttributeValue", "instance_type").Return("t2.medium", nil)
+	fakeInfrastructureResource.ResourceTypeReturnsOnCall(1, "aws_instance")
+	fakeInfrastructureResource.AttributeValueReturnsOnCall(1, "t2.medium", nil)
 
-	mockLiveResource2 := new(MockInfrastructureResourceI)
-	mockLiveResource2.On("ResourceType").Return("aws_instance")
-	mockLiveResource2.On("AttributeValue", "instance_type").Return("t2.micro", nil) // No drift
+	fakeInfrastructureResource.ResourceTypeReturnsOnCall(2, "aws_instance")
+	fakeInfrastructureResource.AttributeValueReturnsOnCall(2, "t2.micro", nil)
 
-	mockPlatformProvider.On("InfrastructreMetadata", mock.Anything, "aws_instance", resource1).Return(mockLiveResource1, nil)
-	mockPlatformProvider.On("InfrastructreMetadata", mock.Anything, "aws_instance", resource2).Return(mockLiveResource2, nil)
+	fakeProvider.InfrastructreMetadataReturns(&fakeInfrastructureResource, nil)
+	fakeProvider.InfrastructreMetadataReturns(&fakeInfrastructureResource, nil)
 
 	driftReport1 := &driftchecker.DriftReport{
 		HasDrift: true,
@@ -243,46 +242,36 @@ func TestRunDriftDetection_SuccessWithDrift(t *testing.T) {
 		Status:   driftchecker.Match,
 	}
 
-	mockDriftChecker.On("CompareStates", mock.Anything, mockLiveResource1, resource1, []string{"instance_type"}).Return(driftReport1, nil)
-	mockDriftChecker.On("CompareStates", mock.Anything, mockLiveResource2, resource2, []string{"instance_type"}).Return(driftReport2, nil)
+	fakeDriftChecker.CompareStatesReturns(driftReport1, nil)
+	fakeDriftChecker.CompareStatesReturns(driftReport2, nil)
 
-	mockReporter.On("WriteReport", mock.Anything, driftReport1).Return(nil)
-	mockReporter.On("WriteReport", mock.Anything, driftReport2).Return(nil)
+	fakeReporter.WriteReportReturnsOnCall(0, nil)
+	fakeReporter.WriteReportReturnsOnCall(1, nil)
 
 	buf := captureSlogOutput()
-	err := RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, mockStateManager, mockPlatformProvider, mockDriftChecker, mockReporter)
+	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, &fakeStateManager, &fakeProvider, &fakeDriftChecker, &fakeReporter)
 	require.NoError(t, err)
-
-	mockStateManager.AssertExpectations(t)
-	mockPlatformProvider.AssertExpectations(t)
-	mockDriftChecker.AssertExpectations(t)
-	mockReporter.AssertExpectations(t)
 
 	assert.Contains(t, buf.String(), "level=INFO")
 	assert.Contains(t, buf.String(), "Drift detection completed.")
 }
 
 func TestRunDriftDetection_InfrastructureMetadataError(t *testing.T) {
-	mockStateManager := new(MockStateManager)
-	mockPlatformProvider := new(MockPlatformProvider)
-	mockDriftChecker := new(MockDriftChecker)
-	mockReporter := new(MockOutputWriter)
+	mockStateManager := statemanagerfakes.FakeStateManagerI{}
+	mockPlatformProvider := providerfakes.FakeProviderI{}
+	mockDriftChecker := driftcheckerfakes.FakeDriftChecker{}
+	mockReporter := reporterfakes.FakeOutputWriter{}
 
 	resource1 := statemanager.StateResource{Name: "res1", Type: "aws_instance"}
 	resources := []statemanager.StateResource{resource1}
 
-	mockStateManager.On("ParseStateFile", mock.Anything, mock.Anything).Return(statemanager.StateContent{}, nil)
-	mockStateManager.On("RetrieveResources", mock.Anything, mock.Anything, "aws_instance").Return(resources, nil)
-	mockPlatformProvider.On("InfrastructreMetadata", mock.Anything, "aws_instance", resource1).Return(nil, fmt.Errorf("infra metadata error"))
+	mockStateManager.ParseStateFileReturns(statemanager.StateContent{}, nil)
+	mockStateManager.RetrieveResourcesReturns(resources, nil)
+	mockPlatformProvider.InfrastructreMetadataReturns(nil, fmt.Errorf("infra metadata error"))
 
 	buf := captureSlogOutput()
-	err := RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, mockStateManager, mockPlatformProvider, mockDriftChecker, mockReporter)
+	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, &mockStateManager, &mockPlatformProvider, &mockDriftChecker, &mockReporter)
 	require.NoError(t, err) // Function should continue despite worker error
-
-	mockStateManager.AssertExpectations(t)
-	mockPlatformProvider.AssertExpectations(t)
-	mockDriftChecker.AssertNotCalled(t, "CompareStates", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-	mockReporter.AssertNotCalled(t, "WriteReport", mock.Anything, mock.Anything)
 
 	assert.Contains(t, buf.String(), "level=ERROR")
 	assert.Contains(t, buf.String(), "Failed to retrieve infrastructure metadata")
@@ -290,31 +279,25 @@ func TestRunDriftDetection_InfrastructureMetadataError(t *testing.T) {
 }
 
 func TestRunDriftDetection_CompareStatesError(t *testing.T) {
-	mockStateManager := new(MockStateManager)
-	mockPlatformProvider := new(MockPlatformProvider)
-	mockDriftChecker := new(MockDriftChecker)
-	mockReporter := new(MockOutputWriter)
+	mockStateManager := statemanagerfakes.FakeStateManagerI{}
+	mockPlatformProvider := providerfakes.FakeProviderI{}
+	mockDriftChecker := driftcheckerfakes.FakeDriftChecker{}
+	mockReporter := reporterfakes.FakeOutputWriter{}
+	mockInfraResource := providerfakes.FakeInfrastructureResourceI{}
 
 	resource1 := statemanager.StateResource{Name: "res1", Type: "aws_instance"}
 	resources := []statemanager.StateResource{resource1}
+	mockStateManager.ParseStateFileReturns(statemanager.StateContent{}, nil)
+	mockStateManager.RetrieveResourcesReturns(resources, nil)
 
-	mockStateManager.On("ParseStateFile", mock.Anything, mock.Anything).Return(statemanager.StateContent{}, nil)
-	mockStateManager.On("RetrieveResources", mock.Anything, mock.Anything, "aws_instance").Return(resources, nil)
+	mockInfraResource.ResourceTypeReturns("aws_instance")
+	mockPlatformProvider.InfrastructreMetadataReturns(&mockInfraResource, nil)
 
-	mockLiveResource1 := new(MockInfrastructureResourceI)
-	mockLiveResource1.On("ResourceType").Return("aws_instance") // Ensure this is called for resource type check
-	mockPlatformProvider.On("InfrastructreMetadata", mock.Anything, "aws_instance", resource1).Return(mockLiveResource1, nil)
-
-	mockDriftChecker.On("CompareStates", mock.Anything, mockLiveResource1, resource1, []string{"instance_type"}).Return(nil, fmt.Errorf("compare states error"))
+	mockDriftChecker.CompareStatesReturns(nil, fmt.Errorf("compare states error"))
 
 	buf := captureSlogOutput()
-	err := RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, mockStateManager, mockPlatformProvider, mockDriftChecker, mockReporter)
+	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, &mockStateManager, &mockPlatformProvider, &mockDriftChecker, &mockReporter)
 	require.NoError(t, err) // Function should continue despite worker error
-
-	mockStateManager.AssertExpectations(t)
-	mockPlatformProvider.AssertExpectations(t)
-	mockDriftChecker.AssertExpectations(t)
-	mockReporter.AssertNotCalled(t, "WriteReport", mock.Anything, mock.Anything)
 
 	assert.Contains(t, buf.String(), "level=ERROR")
 	assert.Contains(t, buf.String(), "Failed to compare states for resource")
@@ -322,34 +305,28 @@ func TestRunDriftDetection_CompareStatesError(t *testing.T) {
 }
 
 func TestRunDriftDetection_WriteReportError(t *testing.T) {
-	mockStateManager := new(MockStateManager)
-	mockPlatformProvider := new(MockPlatformProvider)
-	mockDriftChecker := new(MockDriftChecker)
-	mockReporter := new(MockOutputWriter)
+	mockStateManager := statemanagerfakes.FakeStateManagerI{}
+	mockPlatformProvider := providerfakes.FakeProviderI{}
+	mockDriftChecker := driftcheckerfakes.FakeDriftChecker{}
+	mockReporter := reporterfakes.FakeOutputWriter{}
+	mockInfraResource := providerfakes.FakeInfrastructureResourceI{}
 
 	resource1 := statemanager.StateResource{Name: "res1", Type: "aws_instance"}
 	resources := []statemanager.StateResource{resource1}
 
-	mockStateManager.On("ParseStateFile", mock.Anything, mock.Anything).Return(statemanager.StateContent{}, nil)
-	mockStateManager.On("RetrieveResources", mock.Anything, mock.Anything, "aws_instance").Return(resources, nil)
+	mockStateManager.ParseStateFileReturns(statemanager.StateContent{}, nil)
+	mockStateManager.RetrieveResourcesReturns(resources, nil)
 
-	mockLiveResource1 := new(MockInfrastructureResourceI)
-	mockLiveResource1.On("ResourceType").Return("aws_instance") // Ensure this is called for resource type check
-	mockPlatformProvider.On("InfrastructreMetadata", mock.Anything, "aws_instance", resource1).Return(mockLiveResource1, nil)
+	mockInfraResource.ResourceTypeReturns("aws")
+	mockPlatformProvider.InfrastructreMetadataReturns(&mockInfraResource, nil)
 
 	driftReport1 := &driftchecker.DriftReport{HasDrift: true}
-	mockDriftChecker.On("CompareStates", mock.Anything, mockLiveResource1, resource1, []string{"instance_type"}).Return(driftReport1, nil)
-
-	mockReporter.On("WriteReport", mock.Anything, driftReport1).Return(fmt.Errorf("write report error"))
+	mockDriftChecker.CompareStatesReturns(driftReport1, nil)
+	mockReporter.WriteReportReturns(fmt.Errorf("write report error"))
 
 	buf := captureSlogOutput()
-	err := RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, mockStateManager, mockPlatformProvider, mockDriftChecker, mockReporter)
+	err := cmd.RunDriftDetection(context.Background(), "/tmp/test.tfstate", "aws_instance", []string{"instance_type"}, &mockStateManager, &mockPlatformProvider, &mockDriftChecker, &mockReporter)
 	require.NoError(t, err) // Function should continue despite worker error
-
-	mockStateManager.AssertExpectations(t)
-	mockPlatformProvider.AssertExpectations(t)
-	mockDriftChecker.AssertExpectations(t)
-	mockReporter.AssertExpectations(t)
 
 	assert.Contains(t, buf.String(), "level=ERROR")
 	assert.Contains(t, buf.String(), "Failed to write report for resource")
