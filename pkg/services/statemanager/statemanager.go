@@ -23,9 +23,9 @@ type ConfigDetails struct {
 	Path          string `json:"path,omitempty"`
 	Bucket        string `json:"bucket,omitempty"`
 	Region        string `json:"region,omitempty"`
-	Encrypt       string `json:"encrypt,omitempty"`
+	Encrypt       bool   `json:"encrypt,omitempty"`
 	Key           string `json:"key,omitempty"`
-	DynamoDBTable string `json:"dynamo_db_table,omitempty"`
+	DynamoDBTable string `json:"dynamodb_table,omitempty"`
 }
 
 type BackendConfig struct {
@@ -55,7 +55,7 @@ func (s StateResource) AttributeValue(attribute string) (string, error) {
 
 	data, ok := s.Instances[0].Attributes[attribute]
 	if !ok {
-		return "", fmt.Errorf("attribute does not exist")
+		return "", nil
 	}
 	value, ok := data.(string)
 	if !ok {

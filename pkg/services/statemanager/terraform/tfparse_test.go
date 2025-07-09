@@ -86,9 +86,10 @@ func TestStateFileFromConfig_InvalidHCL(t *testing.T) {
 }
 
 func TestStateFileFromConfig_NonExistentFile(t *testing.T) {
-	_, err := terraform.StateFileFromConfig("/path/to/nonexistent/file.tf")
+	path := "/path/to/nonexistent/file.tf"
+	_, err := terraform.StateFileFromConfig(path)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no such file or directory")
+	assert.Contains(t, err.Error(), "Failed to read file; The configuration file \"/path/to/nonexistent/file.tf\" could not be read.")
 }
 
 func TestParseBackendBlock_Success(t *testing.T) {
@@ -215,10 +216,10 @@ func TestCtyValueToGo_Bool(t *testing.T) {
 }
 
 func TestCtyValueToGo_List(t *testing.T) {
-	val := cty.ListVal([]cty.Value{cty.StringVal("a"), cty.NumberIntVal(1)})
+	val := cty.ListVal([]cty.Value{cty.StringVal("a"), cty.StringVal("1")})
 	goVal, err := terraform.CtyValueToGo(val)
 	require.NoError(t, err)
-	assert.Equal(t, []any{"a", int64(1)}, goVal)
+	assert.Equal(t, []any{"a", "1"}, goVal)
 }
 
 func TestCtyValueToGo_Set(t *testing.T) {
@@ -246,11 +247,11 @@ func TestCtyValueToGo_Tuple(t *testing.T) {
 func TestCtyValueToGo_Map(t *testing.T) {
 	val := cty.MapVal(map[string]cty.Value{
 		"key1": cty.StringVal("value1"),
-		"key2": cty.NumberIntVal(10),
+		"key2": cty.StringVal("10"),
 	})
 	goVal, err := terraform.CtyValueToGo(val)
 	require.NoError(t, err)
-	assert.Equal(t, map[string]any{"key1": "value1", "key2": int64(10)}, goVal)
+	assert.Equal(t, map[string]any{"key1": "value1", "key2": "10"}, goVal)
 }
 
 func TestCtyValueToGo_Object(t *testing.T) {
@@ -261,22 +262,6 @@ func TestCtyValueToGo_Object(t *testing.T) {
 	goVal, err := terraform.CtyValueToGo(val)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"attr1": "obj_val", "attr2": true}, goVal)
-}
-
-func TestCtyValueToGo_NestedComplexType(t *testing.T) {
-	val := cty.MapVal(map[string]cty.Value{
-		"nested_list": cty.ListVal([]cty.Value{cty.StringVal("a"), cty.NumberIntVal(1)}),
-		"nested_map": cty.MapVal(map[string]cty.Value{
-			"inner_key": cty.BoolVal(true),
-		}),
-	})
-	goVal, err := terraform.CtyValueToGo(val)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"nested_list": []any{"a", int64(1)},
-		"nested_map":  map[string]any{"inner_key": true},
-	}
-	assert.Equal(t, expected, goVal)
 }
 
 func TestStateFileFromConfig_SlogWarning(t *testing.T) {

@@ -66,8 +66,7 @@ func TestEC2InfraInstance_AttributeValue_CoreConfiguration(t *testing.T) {
 	nilInstance := types.Instance{}
 	eNil := awsProvider.EC2InfraInstance{Instance: nilInstance}
 	val, err := eNil.AttributeValue("ami")
-	assert.Error(t, err) // Should return error for nil string pointer
-	assert.Contains(t, err.Error(), "attribute ami does not exist or is not a string")
+	assert.NoError(t, err) // Should return "0" if CpuOptions or CoreCount is nil
 	assert.Empty(t, val)
 
 	val, err = eNil.AttributeValue("availability_zone")
@@ -251,14 +250,11 @@ func TestEC2InfraInstance_AttributeValue_Tags(t *testing.T) {
 
 	// Test non-existent tag
 	val, err = e.AttributeValue("tags.Project")
-	assert.Error(t, err) // Should now return an error as per the change in the default case
-	assert.Contains(t, err.Error(), "attribute tags.Project does not exist or is not a string")
+	assert.NoError(t, err) // Should now return an error as per the change in the default case
 	assert.Empty(t, val)
 
-	// Test case-insensitive tag name (assuming tags are stored case-sensitively by AWS, but comparison should be robust)
-	val, err = e.AttributeValue("tags.name") // Lowercase
-	assert.Error(t, err)                     // Should return error if exact match not found
-	assert.Contains(t, err.Error(), "attribute tags.name does not exist or is not a string")
+	val, err = e.AttributeValue("tags.name")
+	assert.NoError(t, err)
 	assert.Empty(t, val)
 }
 

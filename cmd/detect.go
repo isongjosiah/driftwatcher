@@ -21,6 +21,7 @@ type detectCmd struct {
 	PlatformProvider  provider.ProviderI
 	DriftChecker      driftchecker.DriftChecker
 	Reporter          reporter.OutputWriter
+	Profile           string
 	Provider          string
 	Resource          string
 	TfConfigPath      string
@@ -74,7 +75,7 @@ For example:
 
 	dc.Cmd.Flags().StringVar(&dc.TfConfigPath, "configfile", "", "Path to the terraform configuration file")
 	dc.Cmd.Flags().StringSliceVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
-	// dc.cmd.Flags().StringVar(&dc.cfg.Profile.AWSConfig.ProfileName, "awsprofile", "default", "Attributes to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.Profile, "awsprofile", "default", "Attributes to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
 	dc.Cmd.Flags().StringVar(&dc.Resource, "resource", "aws_instance", "Resource to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.OutputPath, "output-file", "", "Resource to check for drift")
@@ -101,7 +102,7 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 	if d.PlatformProvider == nil {
 		switch d.Provider {
 		case "aws":
-			config, err := aws.CheckAWSConfig("", "hiyr")
+			config, err := aws.CheckAWSConfig("", d.Profile)
 			if err != nil {
 				return err
 			}

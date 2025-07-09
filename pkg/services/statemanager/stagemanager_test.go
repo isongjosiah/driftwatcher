@@ -82,8 +82,7 @@ func TestStateResource_AttributeValue_AttributeDoesNotExist(t *testing.T) {
 
 	// Test non-existent attribute
 	val, err := s.AttributeValue("non_existent_attribute")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute does not exist")
+	assert.NoError(t, err)
 	assert.Empty(t, val)
 }
 
@@ -128,8 +127,7 @@ func TestStateResource_AttributeValue_NilAttributesMap(t *testing.T) {
 
 	// Test with nil attributes map
 	val, err := s.AttributeValue("any_attribute")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute does not exist")
+	assert.NoError(t, err)
 	assert.Empty(t, val)
 }
 
@@ -215,7 +213,7 @@ func TestConfigDetails_JSONMarshalling(t *testing.T) {
 		Path:          "/tmp/state.tfstate",
 		Bucket:        "my-bucket",
 		Region:        "us-west-2",
-		Encrypt:       "true",
+		Encrypt:       true,
 		Key:           "path/to/key",
 		DynamoDBTable: "my-ddb-table",
 	}

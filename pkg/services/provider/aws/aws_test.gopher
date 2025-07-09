@@ -7,6 +7,7 @@ import (
 	"drift-watcher/pkg/services/statemanager"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,6 +32,7 @@ var (
 // TestMain sets up LocalStack once for all tests in this package.
 func TestMain(m *testing.M) {
 	ctx := context.Background()
+	slog.Info("Fetching localstack container")
 
 	// Start LocalStack container
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
