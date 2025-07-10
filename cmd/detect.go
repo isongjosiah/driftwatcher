@@ -106,7 +106,8 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 		if d.LocalStackRegion == "" {
 			// NOTE: we are not setting this as a default in the flag, so that if a user is interacting with AWS directly
 			// we don't overwrite their region, since we are relying on aws ignoring empty region string to dynamically
-			// load the region
+			// load the region.
+			// Default to localstack default region if no region is provided
 			d.LocalStackRegion = "us-east-1"
 		}
 		os.Setenv("DRIFT_LOCALSTACK_URL", d.LocalStackUrl)
