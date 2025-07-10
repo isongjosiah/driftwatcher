@@ -158,11 +158,7 @@ This modular and interface-driven architecture not only makes DriftWatcher a fun
 
 #### AWS Security Group Specific Attributes (for related resources)
 
-- `description`
-- `egress`
-- `ingress`
-- `name`
-- `vpc_id`
+- `security_group_ids`
 
 > **Note**: This list can be extended to other attributes, resources, and platforms in future versions.
 
