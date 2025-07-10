@@ -23,12 +23,14 @@ func NewAWSProvider(cfg *config.AWSConfig) (provider.ProviderI, error) {
 	provider := AWSProvider{}
 
 	localStack := os.Getenv("DRIFT_LOCALSTACK_URL")
+	localStackRegion := os.Getenv("DRIFT_LOCALSTACK_REGION")
 
 	awsConfig, err := aConfig.LoadDefaultConfig(context.Background(),
 		aConfig.WithSharedCredentialsFiles(cfg.CredentialPath),
 		aConfig.WithSharedConfigFiles(cfg.ConfigPath),
 		aConfig.WithSharedConfigProfile(cfg.ProfileName),
-		aConfig.WithBaseEndpoint(localStack))
+		aConfig.WithBaseEndpoint(localStack),
+		aConfig.WithRegion(localStackRegion))
 	if err != nil {
 		return nil, err
 	}

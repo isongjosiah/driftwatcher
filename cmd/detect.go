@@ -23,6 +23,7 @@ type detectCmd struct {
 	DriftChecker      driftchecker.DriftChecker
 	Reporter          reporter.OutputWriter
 	Profile           string
+	LocalStackRegion  string
 	Provider          string
 	Resource          string
 	TfConfigPath      string
@@ -76,6 +77,7 @@ For example:
 	dc.Cmd.Flags().StringVar(&dc.TfConfigPath, "configfile", "", "Path to the terraform configuration file")
 	dc.Cmd.Flags().StringSliceVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.Profile, "awsprofile", "default", "Attributes to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.LocalStackRegion, "localstackregion", "us-east-1", "Attributes to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
 	dc.Cmd.Flags().StringVar(&dc.Resource, "resource", "aws_instance", "Resource to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.OutputPath, "output-file", "", "Resource to check for drift")
@@ -102,7 +104,9 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 
 	if d.LocalStackUrl != "" {
 		os.Setenv("DRIFT_LOCALSTACK_URL", d.LocalStackUrl)
+		os.Setenv("DRIFT_LOCALSTACK_REGION", d.LocalStackRegion)
 		defer os.Unsetenv("DRIFT_LOCALSTACK_URL")
+		defer os.Unsetenv("DRIFT_LOCALSTACK_REGION")
 	}
 
 	if d.PlatformProvider == nil {
