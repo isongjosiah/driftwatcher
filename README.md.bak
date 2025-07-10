@@ -1,38 +1,5 @@
 # DriftWatcher CLI Documentation
 
-## Table of Contents
-
-1. [Project Overview](#1-project-overview)
-   - [What is this project?](#what-is-this-project)
-   - [Architectural Design](#architectural-design)
-     - [Modular and Interface-Driven Design](#modular-and-interface-driven-design)
-     - [Supported Attributes for Drift Detection](#supported-attributes-for-drift-detection)
-       - [Core Instance Configuration](#core-instance-configuration)
-       - [Networking & Security](#networking--security)
-       - [Storage (EBS Volumes)](#storage-ebs-volumes)
-       - [Metadata & User Data](#metadata--user-data)
-       - [State](#state)
-       - [AWS Security Group Specific Attributes](#aws-security-group-specific-attributes-for-related-resources)
-2. [Setup and Installation Instructions](#2-setup-and-installation-instructions)
-   - [Prerequisites](#prerequisites)
-   - [Installation Steps](#installation-steps)
-3. [Usage Examples](#3-usage-examples)
-   - [Basic Usage](#basic-usage)
-   - [Common Scenarios](#common-scenarios)
-4. [Running Tests](#4-running-tests)
-5. [Design Decisions and Trade-offs](#5-design-decisions-and-trade-offs)
-   - [Architectural Choices](#architectural-choices)
-   - [Key Design Patterns / Principles](#key-design-patterns--principles)
-   - [Trade-offs Made](#trade-offs-made)
-6. [Ideas for Future Improvements](#7-ideas-for-future-improvements)
-   - [Feature Enhancements](#feature-enhancements)
-   - [User Experience](#user-experience)
-   - [Testing](#testing)
-   - [Distribution](#distribution)
-   - [Security](#security)
-
----
-
 ## 1. Project Overview
 
 This section provides a high-level description of the project, its purpose, and its key features.
@@ -259,8 +226,7 @@ Follow these steps to set up the project locally:
 
 This section demonstrates how to use the CLI tool, providing clear examples for common functionalities.
 
-**Command Flags Reference**
-
+_Command Flags Reference_
 The `detect` command supports the following flags to customize its behavior:
 
 - `--configfile` (string, required): Specifies the path to your Terraform configuration file. This can be a Terraform state file (`.tfstate``) or an HCL configuration file (`.tf`). It is highly recommended to use a`.tfstate` file for accurate drift detection.
@@ -290,20 +256,20 @@ To display the main help message, listing available subcommands and their flags
 driftwatcher detect --help
 ```
 
-### Common Scenarios
+### Common Senarios
 
 1. **Detect Drift for a Specific Terraform State File**:
    This is the recommended way to use driftwatcher, ensuring the most accurate
    comparison against your desired state.
 
 ```bash
-bin/driftwatcher detect \
---configfile "path/to/your/terraform.tfstate" \
---attributes "instance_type,ami,tags" \
---awsprofile "my-dev-profile" \
---provider "aws" \
---resource "aws_instance" \
---output-file "drift_report.json"
+  bin/driftwatcher detect \
+  --configfile "path/to/your/terraform.tfstate" \
+  --attributes "instance_type,ami,tags" \
+  --awsprofile "my-dev-profile" \
+  --provider "aws" \
+  --resource "aws_instance" \
+  --output-file "drift_report.json"
 ```
 
 This command will:
@@ -347,10 +313,10 @@ This command will:
    in the same directory
 
 ```bash
-bin/driftwatcher detect \
---configfile "./path/to/your/main.tf" \
---attributes "instance_type,key_name" \
---resource "aws_instance"
+  bin/driftwatcher detect \
+  --configfile "./path/to/your/main.tf" \
+  --attributes "instance_type,key_name" \
+  --resource "aws_instance"
 ```
 
 3. **Using with LocalStack for Development/Testing**
@@ -362,7 +328,7 @@ bin/driftwatcher detect \
    LocalStack (e.g., from ./assets/localstack as per setup), you can run:
 
    ```bash
-   bin/driftwatcher detect \
+    bin/driftwatcher detect \
    --configfile "./assets/localstack/terraform.tfstate" \
    --provider aws \
    --attributes instance_type,ami \
@@ -381,6 +347,7 @@ docker pull localstack/localstack
 Run localstack on port 4566
 
 ```bash
+
 docker run -d -p 4566:4566 localstack/localstack
 ```
 
@@ -411,6 +378,7 @@ aws --endpoint-url=http://localhost:4566 ec2 stop-instances  --region us-east-1 
 aws --endpoint-url=http://localhost:4566 ec2 modify-instance-attribute  --region us-east-1 --instance-id {instance_id} --instance-type "t2.nano"
 # start the instance
 aws --endpoint-url=http://localhost:4566 ec2 start-instances  --region us-east-1 --instance-ids {instance_id}
+
 ```
 
 ## 4. Running Tests
