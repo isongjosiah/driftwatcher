@@ -1,3 +1,6 @@
+// Package terraform provides Terraform-specific implementation of the state manager interface.
+// It handles parsing and processing of Terraform state files to extract resource information
+// for drift detection and comparison with live infrastructure.
 package terraform
 
 import (
@@ -11,6 +14,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// TerraformStateManager implements the StateManagerI interface for Terraform state files.
+// It provides functionality to parse Terraform state files and extract resource information
+// in a standardized format for drift detection.
 type TerraformStateManager struct {
 	parser *StateParser
 }
@@ -21,6 +27,17 @@ func NewTerraformManager() *TerraformStateManager {
 	}
 }
 
+// ParseStateFile parses a Terraform state file from the specified path and converts it
+// to a standardized StateContent format. This method handles file validation, parsing,
+// and conversion to the internal representation used by the drift detection system.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//   - statePath: File system path to the Terraform state file (.tfstate)
+//
+// Returns:
+//   - statemanager.StateContent: Parsed and standardized state content
+//   - error: Any error encountered during file reading, parsing, or conversion
 func (t *TerraformStateManager) ParseStateFile(ctx context.Context, statePath string) (statemanager.StateContent, error) {
 	var out statemanager.StateContent
 	_, err := os.Stat(statePath)
@@ -44,6 +61,16 @@ func (t *TerraformStateManager) ParseStateFile(ctx context.Context, statePath st
 }
 
 // ConvertTerraformStateToStateContent converts a TerraformState object to a StateContent object.
+// This function maps Terraform-specific state structure to the standardized StateContent format
+// used throughout the drift detection system. It handles version conversion, resource mapping,
+// and metadata extraction.
+//
+// Parameters:
+//   - tfState: The parsed Terraform state object to convert
+//
+// Returns:
+//   - statemanager.StateContent: Standardized state content with mapped fields
+//   - error: Any error encountered during conversion or JSON marshaling
 func ConvertTerraformStateToStateContent(tfState TerraformState) (statemanager.StateContent, error) {
 	newState := statemanager.StateContent{
 		StateVersion:  strconv.Itoa(tfState.Version), // Convert int to string
@@ -98,6 +125,18 @@ func ConvertTerraformStateToStateContent(tfState TerraformState) (statemanager.S
 	return newState, nil
 }
 
+// RetrieveResources retrieves all resources of a specific type from the parsed state content.
+// This method filters the parsed state to return only resources matching the specified type,
+// which is useful for targeted drift detection on specific resource types.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//   - content: The parsed state content (currently unused but maintained for interface compatibility)
+//   - resourceType: The type of resources to retrieve (e.g., "aws_instance", "azurerm_virtual_machine")
+//
+// Returns:
+//   - []statemanager.StateResource: List of resources matching the specified type
+//   - error: Any error encountered during resource retrieval
 func (t *TerraformStateManager) RetrieveResources(ctx context.Context, content statemanager.StateContent, resourceType string) ([]statemanager.StateResource, error) {
 	if t.parser == nil {
 		return nil, fmt.Errorf("")
