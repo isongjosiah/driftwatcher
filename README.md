@@ -264,7 +264,40 @@ go tool cover -html=coverage.out
 
 This will generate a `coverage.out` file and then open an HTML report in your browser, showing test coverage.
 
-## 5. Design Decisions and Trade-offs
+## 5. Testing with localstack
+
+Pull localstack with docker
+
+```bash
+docker pull localstack/localstack
+```
+
+Run localstack on port 4566
+
+```bash
+
+docker run -d -p 4566:4566 localstack/localstack
+```
+
+Deploy infrastrcuture with terraform
+
+```bash
+cd ./assets/localstack
+terraform init
+terrafrom plan
+terraform apply
+```
+
+Build and Run the cli
+
+```bash
+cd ../..
+make build
+bin/driftwatcher detect --configfile ./assets/localstack/terraform.tfstate \
+--provider aws --attributes instance_type,ami --localstack-url http://localhost:4566
+```
+
+## 6. Design Decisions and Trade-offs
 
 This section explains key architectural and design choices made during development, along with the reasoning and any trade-offs involved.
 
@@ -297,7 +330,7 @@ This section explains key architectural and design choices made during developme
 - **Feature Scope vs. Initial Release**: The initial release focuses on a core set of functionalities to deliver immediate value, deferring more advanced or niche features to future iterations to avoid scope creep.
 - **Cross-platform Compatibility**: Go's excellent cross-compilation capabilities minimise this trade-off, but platform-specific interactions (e.g., file paths, permissions) still require careful handling.
 
-## 6. Ideas for Future Improvements
+## 7. Ideas for Future Improvements
 
 This section outlines potential enhancements and new features that could be added in the future.
 
