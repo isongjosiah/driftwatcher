@@ -15,14 +15,13 @@ var RootCmd = &cobra.Command{
 	Aliases:       []string{"dw"},
 	Short:         "A CLI to help you compare two configurations and detect drift across a list of defined attributes",
 	Long:          "CLI to interact with driftwatcher.",
-	Version:       "1.0", // TODO: make dynamic
+	Version:       "1.0",
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	Run:           func(cmd *cobra.Command, args []string) {},
 }
 
 func Execute(ctx context.Context) {
-	RootCmd.SetUsageTemplate("hello world")
 	RootCmd.SetVersionTemplate("1.0")
 	if err := RootCmd.ExecuteContext(ctx); err != nil {
 		slog.Error("Failed to execute command", "error", err)

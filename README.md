@@ -194,6 +194,31 @@ driftwatcher detect \
 
 This command compares the live EC2 instance configuration with the specified Terraform state file, checking for drifts in `instance_type`, `ami`, and `tags`. It uses the `my-dev-profile` AWS credentials and outputs the report to `drift_report.json`.
 
+Output example:
+
+```json
+{
+  "resource_type": "aws_instance",
+  "has_drift": true,
+  "drift_details": [
+    {
+      "field": "instance_type",
+      "terraform_value": "t2.micro",
+      "actual_value": "t2.micro",
+      "drift_type": "MATCH"
+    },
+    {
+      "field": "ami",
+      "terraform_value": "ami-0c55b159cbfafe1d0",
+      "actual_value": "ami-0b7ef3c7339f4970c",
+      "drift_type": "VALUE_CHANGED"
+    }
+  ],
+  "generated_at": "2025-07-10T11:17:15.659474+01:00",
+  "status": "DRIFT"
+}
+```
+
 ### Advanced Usage
 
 **Piping output**:
@@ -201,14 +226,6 @@ This command compares the live EC2 instance configuration with the specified Ter
 ```bash
 driftwatcher detect > file.json
 ```
-
-### Exit Statuses
-
-The DriftWatcher CLI provides specific exit statuses to indicate the outcome of its execution, which can be useful for scripting and automation:
-
-- **0 (Success)**: The command executed successfully with no errors and no drifts detected (if applicable).
-- **1 (General Error)**: The command encountered an error during execution that is not related to drifts. This could include invalid arguments, network issues, or internal processing failures.
-- **2 (Drift Detected)**: The command completed successfully, but it detected drifts or discrepancies in the state it was managing. This status is specifically used to signal that a drift condition exists.
 
 ## 4. Running Tests
 

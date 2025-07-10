@@ -21,6 +21,7 @@ ifndef STRINGER
 	@go get -u -a golang.org/x/tools/cmd/stringer
 endif
 
+# tool to mock interface
 get/counterfeiter:
 ifndef COUNTERFEITER
 	@echo "installing counterfeiter"

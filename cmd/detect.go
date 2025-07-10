@@ -51,8 +51,6 @@ type detectCmd struct {
 //	A pointer to a detectCmd struct, which encapsulates the Cobra command and its dependencies.
 func NewDetectCmd(ctx context.Context, cfg *config.Config) *detectCmd {
 	dc := &detectCmd{
-		// stateManager:     stateManager,
-		// platformProvider: platformProvider,
 		cfg: cfg,
 		ctx: ctx,
 	}
@@ -138,12 +136,6 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	return RunDriftDetection(d.ctx, d.TfConfigPath, d.Resource, d.AttributesToTrack, d.StateManager, d.PlatformProvider, d.DriftChecker, d.Reporter)
-}
-
-type driftConfig struct {
-	resource          string
-	outputPath        string
-	attributesToTrack string
 }
 
 func RunDriftDetection(
