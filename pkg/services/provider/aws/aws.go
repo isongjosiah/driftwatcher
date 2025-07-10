@@ -1,3 +1,5 @@
+// Package aws provides an AWS-specific implementation of the infrastructure provider interface.
+// It handles communication with AWS services to retrieve live infrastructure data for drift detection.
 package aws
 
 import (
@@ -15,10 +17,23 @@ import (
 	"github.com/pkg/errors"
 )
 
+// AWSProvider implements the ProviderI interface for AWS infrastructure.
+// It encapsulates AWS SDK configuration and provides methods to retrieve
+// live infrastructure data from AWS services.
 type AWSProvider struct {
 	Config aws.Config
 }
 
+// NewAWSProvider creates a new AWSProvider instance with the given configuration.
+// It initializes the AWS SDK config with credentials, region, and optional LocalStack settings
+// for local development and testing.
+//
+// Parameters:
+//   - cfg: AWS configuration containing credential paths, config paths, and profile information
+//
+// Returns:
+//   - provider.ProviderI: A configured AWS provider instance
+//   - error: Any error encountered during AWS SDK configuration
 func NewAWSProvider(cfg *config.AWSConfig) (provider.ProviderI, error) {
 	provider := AWSProvider{}
 
@@ -39,6 +54,18 @@ func NewAWSProvider(cfg *config.AWSConfig) (provider.ProviderI, error) {
 	return &provider, nil
 }
 
+// InfrastructreMetadata retrieves live infrastructure metadata for a given resource
+// from AWS services. It acts as a dispatcher, routing requests to appropriate
+// service-specific handlers based on the resource type.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//   - resourceType: The type of AWS resource (e.g., "aws_instance", "aws_s3_bucket")
+//   - resource: The Terraform state resource containing resource configuration
+//
+// Returns:
+//   - provider.InfrastructureResourceI: Live infrastructure data for the resource
+//   - error: Any error encountered during metadata retrieval
 func (a *AWSProvider) InfrastructreMetadata(ctx context.Context, resourceType string, resource statemanager.StateResource) (provider.InfrastructureResourceI, error) {
 	switch resourceType {
 	case "aws_instance":
@@ -62,6 +89,16 @@ func (a *AWSProvider) InfrastructreMetadata(ctx context.Context, resourceType st
 	}
 }
 
+// HandleEC2Metadata retrieves metadata for a specific EC2 instance from AWS.
+// It uses the AWS EC2 API to describe the instance and returns the live infrastructure data.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//   - resourceId: The AWS instance ID to retrieve metadata for
+//
+// Returns:
+//   - *EC2InfraInstance: The live EC2 instance data wrapped in our internal structure
+//   - error: Any error encountered during the AWS API call or data processing
 func (a *AWSProvider) HandleEC2Metadata(ctx context.Context, resourceId string) (*EC2InfraInstance, error) {
 	ec2Filters := []types.Filter{
 		{
