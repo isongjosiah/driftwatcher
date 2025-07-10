@@ -297,6 +297,18 @@ bin/driftwatcher detect --configfile ./assets/localstack/terraform.tfstate \
 --provider aws --attributes instance_type,ami --localstack-url http://localhost:4566
 ```
 
+Edit attributes outside of Terraform
+
+```bash
+# stop the instance
+aws --endpoint-url=http://localhost:4566 ec2 stop-instances  --region us-east-1 --instance-ids {instance_id}
+# modify the instance_type attribute
+aws --endpoint-url=http://localhost:4566 ec2 modify-instance-attribute  --region us-east-1 --instance-id {instance_id} --instance-type "t2.nano"
+# start the instance
+aws --endpoint-url=http://localhost:4566 ec2 start-instances  --region us-east-1 --instance-ids {instance_id}
+
+```
+
 ## 6. Design Decisions and Trade-offs
 
 This section explains key architectural and design choices made during development, along with the reasoning and any trade-offs involved.
