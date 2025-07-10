@@ -6,6 +6,7 @@ import (
 	"drift-watcher/pkg/services/provider"
 	"drift-watcher/pkg/services/statemanager"
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -21,10 +22,13 @@ type AWSProvider struct {
 func NewAWSProvider(cfg *config.AWSConfig) (provider.ProviderI, error) {
 	provider := AWSProvider{}
 
+	localStack := os.Getenv("DRIFT_LOCALSTACK_URL")
+
 	awsConfig, err := aConfig.LoadDefaultConfig(context.Background(),
 		aConfig.WithSharedCredentialsFiles(cfg.CredentialPath),
 		aConfig.WithSharedConfigFiles(cfg.ConfigPath),
-		aConfig.WithSharedConfigProfile(cfg.ProfileName))
+		aConfig.WithSharedConfigProfile(cfg.ProfileName),
+		aConfig.WithBaseEndpoint(localStack))
 	if err != nil {
 		return nil, err
 	}

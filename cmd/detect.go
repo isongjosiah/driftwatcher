@@ -11,6 +11,7 @@ import (
 	"drift-watcher/pkg/services/statemanager/terraform"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -27,6 +28,7 @@ type detectCmd struct {
 	TfConfigPath      string
 	OutputPath        string
 	StateManagerType  string
+	LocalStackUrl     string
 	AttributesToTrack []string
 	ctx               context.Context
 	Cmd               *cobra.Command
@@ -80,6 +82,7 @@ For example:
 	dc.Cmd.Flags().StringVar(&dc.Resource, "resource", "aws_instance", "Resource to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.OutputPath, "output-file", "", "Resource to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.StateManagerType, "state-manager", "terraform", "Resource to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.LocalStackUrl, "localstack-url", "", "Resource to check for drift")
 
 	return dc
 }
@@ -97,6 +100,11 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 		default:
 			return fmt.Errorf("%s statemanager not currently supported", d.StateManagerType)
 		}
+	}
+
+	if d.LocalStackUrl != "" {
+		os.Setenv("DRIFT_LOCALSTACK_URL", d.LocalStackUrl)
+		defer os.Unsetenv("DRIFT_LOCALSTACK_URL")
 	}
 
 	if d.PlatformProvider == nil {
