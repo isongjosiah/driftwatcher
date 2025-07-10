@@ -8,7 +8,71 @@ This section provides a high-level description of the project, its purpose, and 
 
 This is a command-line interface (CLI) tool written in Go that parses Terraform state or HCL configurations and compares them with their corresponding AWS EC2 instance configurations. It detects and reports drifts across a specified list of attributes. The tool handles various field types and nested structures, returning whether a drift is detected for any attribute and specifying which attributes have changed, the desired value and observed value, all presented in a structured, easy-to-understand format.
 
-### Key Features
+### Architectural Design
+
+This section delves into the core architectural choices for the drfitwatcher CLI tool, highlighting how its modular and interface-driven design contributes to flexibility, testability, and maintainability
+
+#### Modular and Interface-Driven Design
+
+The DriftWatcher CLI is built with a strong emphasis on modularity and the use of Go interfaces. This approach separates concerns and defines clear contracts between different components of the application. The key interfaces are:
+
+- `StateManagerI`: Defined in `pkg/services/statemanager/statemanager.go` this interface abstracts the process of parsing and retrieving resource information from configuration files (e.g., Terraform state files). This allows the application to support various Infrastructure as Code (IaC) tools and state formats without modifying the core drift detection logic.
+
+```go
+type StateManagerI interface {
+ ParseStateFile(ctx context.Context, statePath string) (StateContent, error)
+ RetrieveResources(ctx context.Context, content StateContent, resourceType string) ([]StateResource, error)
+}
+```
+
+- `ProviderI`: Defined in `pkg/services/provider/platform.go`, this interface his interface represents a generic cloud or infrastructure provider. It's responsible for fetching live resource metadata from the actual infrastructure. This design allows for easy extension to other cloud providers (e.g., Azure, GCP) by simply implementing this interface.
+
+```go
+type ProviderI interface {
+ InfrastructreMetadata(ctx context.Context, resourceType string, resource statemanager.StateResource) (InfrastructureResourceI, error)
+}
+```
+
+-`InfrastructureResourceI`: Defined in `pkg/services/provider/platform.go` , this interface defines how to interact with an individual resource's live data from a provider. It ensures that any concrete implementation of a resource (e.g., an AWS EC2 instance) provides a consistent way to retrieve its type and attribute values.
+
+```go
+type InfrastructureResourceI interface {
+ ResourceType() string
+ AttributeValue(attribute string) (string, error)
+}
+```
+
+- `DriftChecker`: Defined in `pkg/services/driftchecker/driftchecker.go`, this interface encapsulates the core logic for comparing a desired state (from the `StateManager`) with the actual live state (from the `Provider`). This separation ensures that the comparison algorithm can be independently tested and potentially swapped out for different comparison strategies.
+
+```go
+type DriftChecker interface {
+ CompareStates(ctx context.Context, liveData provider.InfrastructureResourceI, desiredState statemanager.StateResource, attributesToTrack []string) (*DriftReport, error)
+}
+```
+
+- `OutputWriter`: Defined in `reporter.go` this interface handles the reporting of drift detection results. This allows for various output formats (e.g., JSON to file, stdout) without affecting the drift detection process itself.
+
+```go
+type OutputWriter interface {
+ WriteReport(ctx context.Context, report *driftchecker.DriftReport) error
+}
+```
+
+The architectural design of the DriftWatcher CLI emphasizes high modularity and separation of concerns through the extensive use of Go interfaces. This approach makes the codebase easier to understand, manage, and debug.
+
+Here are the key advantages:
+
+Extensibility: The interface-driven design allows for straightforward expansion to support new Infrastructure as Code (IaC) tools (e.g., Pulumi, CloudFormation), new cloud providers (e.g., Azure, GCP), and different reporting formats simply by implementing the relevant interfaces.
+
+Testability: Interfaces facilitate easy mocking and dependency injection, enabling isolated testing of individual components, leading to more robust and reliable code.
+
+Maintainability: Changes or bug fixes in one module are less likely to affect others, as long as the interface contracts are preserved, simplifying long-term maintenance.
+
+Flexibility: Components like StateManager, PlatformProvider, DriftChecker, and Reporter can be dynamically instantiated based on runtime configurations, allowing users to customize the tool's behavior.
+
+Concurrency Management: The design incorporates Go's concurrency primitives to process resources in parallel, enhancing performance for large-scale drift detection by efficiently managing concurrent requests to cloud providers.
+
+This modular and interface-driven architecture not only makes DriftWatcher a functional, scalable, and adaptable CLI tool but also inherently allows it to be used as a library. Because the core functionalities are abstracted behind interfaces, other applications can easily import and utilize these components (e.g., the StateManager, Provider, DriftChecker, and Reporter services) independently, integrating drift detection capabilities into larger systems without running the full CLI.
 
 **EC2 Drift Detection**: Compares live AWS EC2 instance configurations against Terraform state or HCL.
 
@@ -73,17 +137,13 @@ This is a command-line interface (CLI) tool written in Go that parses Terraform 
 
 **Structured Reporting**: Presents detected drifts in an easy-to-understand format, detailing attribute changes, including desired and observed values.
 
-**Flexible Configuration Input**: This tool supports parsing configuration from both Terraform state files (`.tfstate`) and HCL configuration files (`.tf`).
+**Flexible Configuration Input**: This tool supports parsing configuration from both Terraform state files (`.tfstate`) and HCL configuration files (`.tf`). It is highly recommended to use Terraform state files (`.tfstate`) for configuration input, as parsing directly from HCL files (`.tf`) is not yet stable and may not capture all nuances of your infrastructure's desired state.
 
-**State File Preference**: It is highly recommended to use Terraform state files (`.tfstate`) for configuration input, as parsing directly from HCL files (`.tf`) is not yet stable and may not capture all nuances of your infrastructure's desired state.
-
-**State File Lookup Logic** (when HCL is provided): When an HCL configuration file is provided, the tool first attempts to locate a corresponding Terraform state file. It looks for a state file explicitly specified, then a default state file (e.g., `terraform.tfstate`) in the HCL configuration's path. If no state file is found, the tool will attempt to parse configuration information directly from the HCL file.
+**State File Lookup Logic** (when HCL is provided): When an HCL configuration file is provided, the tool first attempts to locate a corresponding Terraform state file. It looks for a state file explicitly specified, then a default state file (e.g., `terraform.tfstate`) in the HCL configuration's path.
 
 > **Note**: Extensive parsing directly from HCL files was initially explored but has been temporarily abandoned in favour of fetching state files based on the HCL configuration, as described, until HCL parsing capabilities are stabilised.
 
 **Local File Support Only**: Currently, configuration files can only be fetched locally. For instructions on how to fetch remote state locally, please refer to the "Fetching Terraform State Locally (Recommended)" section below.
-
-**Exit Statuses**: Provides clear exit codes for scripting (0 for no drift/success, 1 for general errors, 2 for drift detected).
 
 ## 2. Setup and Installation Instructions
 
