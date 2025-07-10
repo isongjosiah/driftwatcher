@@ -144,10 +144,6 @@ func (e *EC2InfraInstance) AttributeValue(attribute string) (string, error) {
 			return "", nil
 		}
 
-		// For security group specific attributes (SGDescription, SGEgress, etc.)
-		// that are not part of the EC2 instance itself, return an unsupported error.
-		// If these attributes were meant to be retrieved from a Security Group resource,
-		// you'd need a separate SecurityGroupInfraResource struct and provider method.
 		return "", fmt.Errorf("'%s' attribute is not supported for EC2 instances or is an invalid attribute name", attribute)
 	}
 }

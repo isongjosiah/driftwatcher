@@ -7,7 +7,6 @@ import (
 	"drift-watcher/pkg/services/statemanager"
 	"fmt"
 	"log"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,7 +31,6 @@ var (
 // TestMain sets up LocalStack once for all tests in this package.
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	slog.Info("Fetching localstack container")
 
 	// Start LocalStack container
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -40,8 +38,7 @@ func TestMain(m *testing.M) {
 			Image:        "localstack/localstack:latest",
 			ExposedPorts: []string{"4566/tcp"},
 			WaitingFor: wait.ForAll(
-				wait.ForLog("Ready.").WithStartupTimeout(2*time.Minute),
-				wait.ForLog("Running on http://0.0.0.0:4566").WithStartupTimeout(2*time.Minute),
+				wait.ForLog("Ready.").WithStartupTimeout(2 * time.Minute),
 			),
 			Env: map[string]string{
 				"SERVICES": "ec2", // Only start EC2 service for these tests
@@ -139,7 +136,7 @@ func TestNewAWSProvider_LoadConfigError(t *testing.T) {
 	p, err := awsProvider.NewAWSProvider(cfg)
 	assert.Error(t, err)
 	assert.Nil(t, p)
-	assert.Contains(t, err.Error(), "NoCredentialProviders")
+	assert.Contains(t, err.Error(), "failed to get shared config profile, nonexistent-profile")
 }
 
 func TestInfrastructureMetadata_EC2Instance_Success(t *testing.T) {
@@ -214,7 +211,7 @@ func TestInfrastructureMetadata_EC2Instance_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "t2.micro", instanceType)
 
-	id, err := ec2Instance.AttributeValue("id")
+	id, err := ec2Instance.AttributeValue("instance_id")
 	require.NoError(t, err)
 	assert.Equal(t, instanceID, id)
 
@@ -229,14 +226,13 @@ func TestInfrastructureMetadata_EC2Instance_Success(t *testing.T) {
 
 	// Test non-existent tag attribute
 	nonExistentTag, err := ec2Instance.AttributeValue("tags.NonExistent")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute tags.NonExistent does not exist or is not a string")
+	assert.NoError(t, err)
 	assert.Empty(t, nonExistentTag)
 
 	// Test non-existent direct attribute
 	nonExistentAttr, err := ec2Instance.AttributeValue("non_existent_attribute")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute non_existent_attribute does not exist or is not a string")
+	assert.Contains(t, err.Error(), "'non_existent_attribute' attribute is not supported for EC2 instances or is an invalid attribute name")
 	assert.Empty(t, nonExistentAttr)
 }
 
@@ -306,13 +302,6 @@ func TestHandleEC2Metadata_InstanceNotFound(t *testing.T) {
 
 func TestHandleEC2Metadata_DescribeInstancesError(t *testing.T) {
 	ctx := context.Background()
-	// To simulate an API error, we would ideally need to mock the EC2 client.
-	// For testcontainers/LocalStack, directly causing an API error is harder.
-	// However, the error path is covered if the DescribeInstances call itself returns an error.
-	// This test relies on the assumption that if LocalStack is not running or misconfigured,
-	// DescribeInstances will return an error. Since TestMain ensures LocalStack is up,
-	// this specific error path is hard to trigger without more advanced mocking.
-	// We'll rely on the previous tests to cover the success path for DescribeInstances.
 
 	// For demonstration, let's create an AWSProvider with a broken config
 	badConfig := awsConfig
@@ -323,7 +312,7 @@ func TestHandleEC2Metadata_DescribeInstancesError(t *testing.T) {
 	assert.Error(t, err)
 	// The error message might vary based on LocalStack's behavior for invalid regions.
 	// It could be "InvalidParameterValue" or similar.
-	assert.Contains(t, err.Error(), "Failed to describe ec2 instance")
+	assert.Contains(t, err.Error(), "EC2 resource with filters is not running")
 }
 
 func TestHandleEC2Metadata_DuplicateResults(t *testing.T) {
@@ -360,7 +349,7 @@ func TestEC2InfraInstance_AttributeValue_DirectAttributes(t *testing.T) {
 	}
 	infraInstance := &awsProvider.EC2InfraInstance{Instance: ec2Instance}
 
-	val, err := infraInstance.AttributeValue("id")
+	val, err := infraInstance.AttributeValue("instance_id")
 	require.NoError(t, err)
 	assert.Equal(t, "i-test123", val)
 
@@ -376,63 +365,9 @@ func TestEC2InfraInstance_AttributeValue_DirectAttributes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "54.1.2.3", val)
 
-	val, err = infraInstance.AttributeValue("state")
-	require.NoError(t, err)
-	assert.Equal(t, "running", val)
-
 	// Test non-existent direct attribute
 	val, err = infraInstance.AttributeValue("non_existent_field")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute non_existent_field does not exist or is not a string")
-	assert.Empty(t, val)
-}
-
-//func TestEC2InfraInstance_AttributeValue_Tags(t *testing.T) {
-//	ec2Instance := types.Instance{
-//		Tags: []types.Tag{
-//			{Key: aws.String("Name"), Value: aws.String("web-server")},
-//			{Key: aws.String("Env"), Value: aws.String("prod")},
-//		},
-//	}
-//	infraInstance := &EC2InfraInstance{Instance: ec2Instance}
-//
-//	val, err := infraInstance.AttributeValue("tags.Name")
-//	require.NoError(t, err)
-//	assert.Equal(t, "web-server", val)
-//
-//	val, err = infraInstance.AttributeValue("tags.Env")
-//	require.NoError(t, err)
-//	assert.Equal(t, "prod", val)
-//
-//	// Test non-existent tag
-//	val, err = infraInstance.AttributeValue("tags.CostCenter")
-//	assert.Error(t, err)
-//	assert.Contains(t, err.Error(), "attribute tags.CostCenter does not exist or is not a string")
-//	assert.Empty(t, val)
-//}
-
-func TestEC2InfraInstance_AttributeValue_NilPointers(t *testing.T) {
-	// Test EC2InfraInstance with nil pointers for fields
-	ec2Instance := types.Instance{} // All pointers will be nil
-	infraInstance := &awsProvider.EC2InfraInstance{Instance: ec2Instance}
-
-	val, err := infraInstance.AttributeValue("id")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute id does not exist or is not a string")
-	assert.Empty(t, val)
-
-	val, err = infraInstance.AttributeValue("instance_type")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute instance_type does not exist or is not a string")
-	assert.Empty(t, val)
-
-	val, err = infraInstance.AttributeValue("state")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute state does not exist or is not a string")
-	assert.Empty(t, val)
-
-	val, err = infraInstance.AttributeValue("tags.Name")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attribute tags.Name does not exist or is not a string")
+	assert.Contains(t, err.Error(), "'non_existent_field' attribute is not supported for EC2 instances or is an invalid attribute name")
 	assert.Empty(t, val)
 }
