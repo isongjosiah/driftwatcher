@@ -1,3 +1,5 @@
+// Package driftchecker provides functionality to detect and report drift between
+// Terraform state and actual infrastructure resources.
 package driftchecker
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -44,6 +46,10 @@ type DriftReport struct {
 	Status       string      `json:"status,omitempty"`
 }
 
+// DriftChecker defines the interface for comparing infrastructure states and detecting drift.
+// Implementations of this interface should provide the logic to compare live infrastructure
+// data with the desired state defined.
+//
 //counterfeiter:generate . DriftChecker
 type DriftChecker interface {
 	CompareStates(ctx context.Context, liveData provider.InfrastructureResourceI, desiredState statemanager.StateResource, attributesToTrack []string) (*DriftReport, error)
