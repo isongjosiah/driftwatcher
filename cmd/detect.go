@@ -142,6 +142,31 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 	return RunDriftDetection(d.ctx, d.TfConfigPath, d.Resource, d.AttributesToTrack, d.StateManager, d.PlatformProvider, d.DriftChecker, d.Reporter)
 }
 
+// RunDriftDetection orchestrates the complete drift detection workflow for infrastructure resources.
+// This function coordinates multiple components to parse IaC state, retrieve live infrastructure
+// data, compare states, and generate drift reports. It processes resources concurrently using a
+// worker pool pattern to improve performance when checking multiple resources.
+//
+// The workflow consists of the following steps:
+//  1. Parse the IaC state file to extract resource definitions
+//  2. Retrieve resources of the specified type from the parsed state
+//  3. For each resource, concurrently:
+//     a. Fetch live infrastructure metadata from the cloud provider
+//     b. Compare the desired state with actual infrastructure state
+//     c. Generate and write drift reports for any detected differences
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control across all operations
+//   - tfConfigPath: File system path to the Terraform state file (.tfstate)
+//   - resourceType: Type of resources to check for drift (e.g., "aws_instance" )
+//   - attributesToTrack: List of specific resource attributes to monitor for drift
+//   - stateManager: Interface for parsing and retrieving data from Terraform state files
+//   - platformProvider: Interface for retrieving live infrastructure data from cloud providers
+//   - driftChecker: Interface for comparing desired state with actual infrastructure state
+//   - reporter: Interface for writing drift reports to various output destinations
+//
+// Returns:
+//   - error: Any critical error that prevents the drift detection process from completing
 func RunDriftDetection(
 	ctx context.Context,
 	tfConfigPath string,
