@@ -250,31 +250,38 @@ The `detect` command supports the following flags to customize its behavior:
 
 ### Basic Usage
 
-To run the CLI tool, open your terminal and use the main command, followed by its subcommands and arguments.
+To display the main help message, listing available subcommands and their flags
 
 ```bash
-driftwatcher --help
+driftwatcher detect --help
 ```
 
-This command will display the main help message, listing available subcommands.
+### Common Senarios
 
-### Common Commands
-
-**Detect configuration drift**:
+1. **Detect Drift for a Specific Terraform State File**:
+   This is the recommended way to use driftwatcher, ensuring the most accurate
+   comparison against your desired state.
 
 ```bash
-driftwatcher detect \
+  bin/driftwatcher detect \
   --configfile "path/to/your/terraform.tfstate" \
   --attributes "instance_type,ami,tags" \
   --awsprofile "my-dev-profile" \
   --provider "aws" \
-  --resource "ec2" \
+  --resource "aws_instance" \
   --output-file "drift_report.json"
 ```
 
-This command compares the live EC2 instance configuration with the specified Terraform state file, checking for drifts in `instance_type`, `ami`, and `tags`. It uses the `my-dev-profile` AWS credentials and outputs the report to `drift_report.json`.
+This command will:
 
-Output example:
+- Read the desired state from your `terraform.tfstate` file located at `path/to/your/terraform.tfstate`
+- Connect to AWS using the `my-dev-profile` credentials.
+- Focus on `aws_instance` resources.
+- Check for differences in `instance_type`, `ami`, and `tags` attributes between
+  your Terraform state and live AWS environment.
+- Write the detailed drfit report to `drift_report.json`
+
+  Output example(`drift_report.json` content):
 
 ```json
 {
@@ -299,52 +306,37 @@ Output example:
 }
 ```
 
-### Advanced Usage
-
-**Piping output**:
-
-```bash
-driftwatcher detect > file.json
-```
-
-## 4. Running Tests
-
-This section provides instructions on how to run the tests for the project.
-
-To execute all unit and integration tests, navigate to the root directory of the project and run:
+2. **Checking an HCL Configuration file**
+   While using `.tfstate` files is recommended, you can also point DriftWatcher
+   to an HCL configuration file (`.tf`). The tool will attempt to locate a corresponding
+   state file based on the configuration local `backend` or default to `terraform.tfstate`
+   in the same directory
 
 ```bash
-make test
+  bin/driftwatcher detect \
+  --configfile "./path/to/your/main.tf" \
+  --attributes "instance_type,key_name" \
+  --resource "aws_instance"
 ```
 
-To run tests with verbose output:
+3. **Using with LocalStack for Development/Testing**
+   For local development and testing purposes, you can configure DriftWatcher to
+   interact with a LocalStack instance instead of a real AWS environment.
+   First, ensure your LocalStack instance is running
+   (e.g., docker run -d -p 4566:4566 localstack/localstack). Then, if you have
+   deployed infrastructure using Terraform into
+   LocalStack (e.g., from ./assets/localstack as per setup), you can run:
 
-```bash
-make testv
-```
+   ```bash
+    bin/driftwatcher detect \
+   --configfile "./assets/localstack/terraform.tfstate" \
+   --provider aws \
+   --attributes instance_type,ami \
+   --localstack-url http://localhost:4566 \
+   --localstackregion us-east-1
+   ```
 
-To run tests with coverage output:
-
-```bash
-make testcov
-```
-
-To run specific tests, you can use the `-run` flag with a regular expression:
-
-```bash
-make test-specific TEST_FUNCTION=TestAuthHandler PACKAGE_PATH=./server/handlers
-```
-
-For detailed test coverage information:
-
-```bash
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-```
-
-This will generate a `coverage.out` file and then open an HTML report in your browser, showing test coverage.
-
-## 5. Testing with localstack
+   **Testing with localstack(Detailed Walkthrough)**
 
 Pull localstack with docker
 
@@ -389,16 +381,48 @@ aws --endpoint-url=http://localhost:4566 ec2 start-instances  --region us-east-1
 
 ```
 
-## 6. Design Decisions and Trade-offs
+## 4. Running Tests
+
+This section provides instructions on how to run the tests for the project.
+
+To execute all unit and integration tests, navigate to the root directory of the project and run:
+
+```bash
+make test
+```
+
+To run tests with verbose output:
+
+```bash
+make testv
+```
+
+To run tests with coverage output:
+
+```bash
+make testcov
+```
+
+To run specific tests, you can use the `-run` flag with a regular expression:
+
+```bash
+make test-specific TEST_FUNCTION=TestAuthHandler PACKAGE_PATH=./server/handlers
+```
+
+For detailed test coverage information:
+
+```bash
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+This will generate a `coverage.out` file and then open an HTML report in your browser, showing test coverage.
+
+## 5. Design Decisions and Trade-offs
 
 This section explains key architectural and design choices made during development, along with the reasoning and any trade-offs involved.
 
 ### Architectural Choices
-
-**Programming Language: Go**
-
-- **Reasoning**: Chosen for its excellent performance, strong concurrency primitives (goroutines), static typing, and the ability to compile into single, self-contained binaries, making distribution very simple. It's well-suited for building efficient and reliable CLI tools.
-- **Trade-offs**: Can have a steeper learning curve for developers new to compiled languages or Go's specific paradigms (e.g., error handling, interfaces).
 
 **CLI Framework/Library: (Cobra, spf13/Viper)**
 
@@ -418,7 +442,6 @@ This section explains key architectural and design choices made during developme
 
 ### Trade-offs Made
 
-- **Performance vs. Ease of Use**: In some cases, a more user-friendly interactive prompt or a simpler command structure was prioritised over raw execution speed, aiming for a better developer experience.
 - **Feature Scope vs. Initial Release**: The initial release focuses on a core set of functionalities to deliver immediate value, deferring more advanced or niche features to future iterations to avoid scope creep.
 - **Cross-platform Compatibility**: Go's excellent cross-compilation capabilities minimise this trade-off, but platform-specific interactions (e.g., file paths, permissions) still require careful handling.
 
@@ -432,11 +455,6 @@ This section outlines potential enhancements and new features that could be adde
 - Implement tab-completion for commands and arguments in various shells (Bash, Zsh, PowerShell)
 - Support for different output formats (e.g., CSV, XML) in addition to JSON
 - Add a daemon mode for continuous operations
-
-### Performance Optimisations
-
-- Optimise startup time for complex commands
-- Implement caching for frequently accessed remote data
 
 ### User Experience
 
