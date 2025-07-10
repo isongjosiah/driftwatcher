@@ -74,8 +74,6 @@ Concurrency Management: The design incorporates Go's concurrency primitives to p
 
 This modular and interface-driven architecture not only makes DriftWatcher a functional, scalable, and adaptable CLI tool but also inherently allows it to be used as a library. Because the core functionalities are abstracted behind interfaces, other applications can easily import and utilize these components (e.g., the StateManager, Provider, DriftChecker, and Reporter services) independently, integrating drift detection capabilities into larger systems without running the full CLI.
 
-**EC2 Drift Detection**: Compares live AWS EC2 instance configurations against Terraform state or HCL.
-
 **Supported Attributes for Drift Detection**:
 
 #### Core Instance Configuration
@@ -227,6 +225,28 @@ Follow these steps to set up the project locally:
 ## 3. Usage Examples
 
 This section demonstrates how to use the CLI tool, providing clear examples for common functionalities.
+
+_Command Flags Reference_
+The `detect` command supports the following flags to customize its behavior:
+
+- `--configfile` (string, required): Specifies the path to your Terraform configuration file. This can be a Terraform state file (`.tfstate``) or an HCL configuration file (`.tf`). It is highly recommended to use a`.tfstate` file for accurate drift detection.
+
+- `--attributes` (string slice, default: `instance_type`): A comma-separated list of resource attributes to check for drift. For example:`instance_type,ami`.
+
+- `--awsprofile` (string, default: `default`): The name of the AWS profile to use for authenticating with AWS services. This corresponds to profiles configured in your ~/.aws/credentials or ~/.aws/config files.
+
+- `--provider` (string, default: `aws`): Specifies the cloud provider to interact with. Currently, only aws is supported.
+
+- `--resource` (string, default: `aws_instance`): Defines the specific type of resource to check for drift. For AWS, only `aws_instance`
+  is currently supported
+
+- `--output-file (string)`: If provided, the drift report will be written to this file in JSON format. If omitted, the report will be printed to standard output (stdout).
+
+- `--state-manager` (string, default: `terraform`): Specifies the state manager type to use for parsing your configuration. Currently, only terraform is supported.
+
+- `--localstack-url` (string): If provided, the tool will connect to a LocalStack instance at this URL for AWS API calls, useful for local development and testing. When used, `DRIFT_LOCALSTACK_URL`` and`DRIFT_LOCALSTACK_REGION` environment variables are temporarily set.
+
+- `--localstackregion` (string, default: `us-east-1``): Specifies the AWS region to use when connecting to LocalStack. Only relevant when`--localstack-url` is also provided.
 
 ### Basic Usage
 
@@ -427,7 +447,6 @@ This section outlines potential enhancements and new features that could be adde
 
 ### Testing
 
-- Expand unit and integration test coverage for all commands and their logic using Go's built-in testing framework
 - Implement end-to-end tests to simulate real user interactions
 - Set up a CI/CD pipeline for automated testing and deployment
 
@@ -439,4 +458,3 @@ This section outlines potential enhancements and new features that could be adde
 ### Security
 
 - Implement secure handling of sensitive credentials (e.g., using OS keychains or secure environment variable practices)
--
