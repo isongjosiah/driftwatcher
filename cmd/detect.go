@@ -77,7 +77,7 @@ For example:
 	dc.Cmd.Flags().StringVar(&dc.TfConfigPath, "configfile", "", "Path to the terraform configuration file")
 	dc.Cmd.Flags().StringSliceVar(&dc.AttributesToTrack, "attributes", []string{"instance_type"}, "Attributes to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.Profile, "awsprofile", "default", "Attributes to check for drift")
-	dc.Cmd.Flags().StringVar(&dc.LocalStackRegion, "localstackregion", "", "Attributes to check for drift")
+	dc.Cmd.Flags().StringVar(&dc.LocalStackRegion, "localstackregion", "us-east-1", "Attributes to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.Provider, "provider", "aws", "Name of provider")
 	dc.Cmd.Flags().StringVar(&dc.Resource, "resource", "aws_instance", "Resource to check for drift")
 	dc.Cmd.Flags().StringVar(&dc.OutputPath, "output-file", "", "Resource to check for drift")
@@ -103,13 +103,6 @@ func (d *detectCmd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if d.LocalStackUrl != "" {
-		if d.LocalStackRegion == "" {
-			// NOTE: we are not setting this as a default in the flag, so that if a user is interacting with AWS directly
-			// we don't overwrite their region, since we are relying on aws ignoring empty region string to dynamically
-			// load the region.
-			// Default to localstack default region if no region is provided
-			d.LocalStackRegion = "us-east-1"
-		}
 		os.Setenv("DRIFT_LOCALSTACK_URL", d.LocalStackUrl)
 		os.Setenv("DRIFT_LOCALSTACK_REGION", d.LocalStackRegion)
 		defer os.Unsetenv("DRIFT_LOCALSTACK_URL")
