@@ -21,8 +21,8 @@
    - [Common Scenarios](#common-scenarios)
      - [Detect Drift for a Specific Terraform State File](#1-detect-drift-for-a-specific-terraform-state-file)
      - [Checking an HCL Configuration file](#2-checking-an-hcl-configuration-file)
-     - [Using with LocalStack for Development/Testing](#using-with-localstack-for-developmenttesting)
-       - [Testing with LocalStack (Detailed Walkthrough)](#testing-with-localstack-detailed-walkthrough)
+     - [Using with LocalStack for Development/Testing](#using-with-localstack-for-development-or-testing)
+       - [Testing with LocalStack (Detailed Walkthrough)](#detailed-walk-through-with-localstack)
 4. [Running Tests](#4-running-tests)
 5. [Design Decisions and Trade-offs](#5-design-decisions-and-trade-offs)
    - [Architectural Choices](#architectural-choices)
@@ -355,7 +355,7 @@ bin/driftwatcher detect \
 --resource "aws_instance"
 ```
 
-#### 3. **Using with LocalStack for Development/Testing**
+#### 3. **Using with LocalStack for Development or Testing**
 
 For local development and testing purposes, you can configure DriftWatcher to
 interact with a LocalStack instance instead of a real AWS environment.
@@ -373,7 +373,7 @@ bin/driftwatcher detect \
 --localstackregion us-east-1
 ```
 
-##### **Testing with localstack(Detailed Walkthrough)**
+##### **Detailed Walk Through with localstack**
 
 Pull localstack with docker
 
