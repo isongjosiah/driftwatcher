@@ -19,6 +19,10 @@
 3. [Usage Examples](#3-usage-examples)
    - [Basic Usage](#basic-usage)
    - [Common Scenarios](#common-scenarios)
+     - [Detect Drift for a Specific Terraform State File](#1-detect-drift-for-a-specific-terraform-state-file)
+     - [Checking an HCL Configuration file](2-checking-an-hcl-configuration-file)
+     - [Using with localstack for Development/Testing](3-using-with-localstack-for-development/testing)
+       - [Testing with localstack(Detailed walkthrough)](<testing-with-localstack-(detailed-walkthrough)>)
 4. [Running Tests](#4-running-tests)
 5. [Design Decisions and Trade-offs](#5-design-decisions-and-trade-offs)
    - [Architectural Choices](#architectural-choices)
@@ -288,9 +292,10 @@ driftwatcher detect --help
 
 ### Common Scenarios
 
-1. **Detect Drift for a Specific Terraform State File**:
-   This is the recommended way to use driftwatcher, ensuring the most accurate
-   comparison against your desired state.
+#### 1. **Detect Drift for a Specific Terraform State File**
+
+This is the recommended way to use driftwatcher, ensuring the most accurate
+comparison against your desired state.
 
 ```bash
 bin/driftwatcher detect \
@@ -336,11 +341,12 @@ This command will:
 }
 ```
 
-2. **Checking an HCL Configuration file**
-   While using `.tfstate` files is recommended, you can also point DriftWatcher
-   to an HCL configuration file (`.tf`). The tool will attempt to locate a corresponding
-   state file based on the configuration local `backend` or default to `terraform.tfstate`
-   in the same directory
+#### 2. **Checking an HCL Configuration file**
+
+While using `.tfstate` files is recommended, you can also point DriftWatcher
+to an HCL configuration file (`.tf`). The tool will attempt to locate a corresponding
+state file based on the configuration local `backend` or default to `terraform.tfstate`
+in the same directory
 
 ```bash
 bin/driftwatcher detect \
@@ -349,24 +355,25 @@ bin/driftwatcher detect \
 --resource "aws_instance"
 ```
 
-3. **Using with LocalStack for Development/Testing**
-   For local development and testing purposes, you can configure DriftWatcher to
-   interact with a LocalStack instance instead of a real AWS environment.
-   First, ensure your LocalStack instance is running
-   (e.g., docker run -d -p 4566:4566 localstack/localstack). Then, if you have
-   deployed infrastructure using Terraform into
-   LocalStack (e.g., from ./assets/localstack as per setup), you can run:
+#### 3. **Using with LocalStack for Development/Testing**
 
-   ```bash
-   bin/driftwatcher detect \
-   --configfile "./assets/localstack/terraform.tfstate" \
-   --provider aws \
-   --attributes instance_type,ami \
-   --localstack-url http://localhost:4566 \
-   --localstackregion us-east-1
-   ```
+For local development and testing purposes, you can configure DriftWatcher to
+interact with a LocalStack instance instead of a real AWS environment.
+First, ensure your LocalStack instance is running
+(e.g., docker run -d -p 4566:4566 localstack/localstack). Then, if you have
+deployed infrastructure using Terraform into
+LocalStack (e.g., from ./assets/localstack as per setup), you can run:
 
-   **Testing with localstack(Detailed Walkthrough)**
+```bash
+bin/driftwatcher detect \
+--configfile "./assets/localstack/terraform.tfstate" \
+--provider aws \
+--attributes instance_type,ami \
+--localstack-url http://localhost:4566 \
+--localstackregion us-east-1
+```
+
+##### **Testing with localstack(Detailed Walkthrough)**
 
 Pull localstack with docker
 
