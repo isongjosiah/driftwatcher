@@ -21,7 +21,7 @@
    - [Common Scenarios](#common-scenarios)
      - [Detect Drift for a Specific Terraform State File](#1-detect-drift-for-a-specific-terraform-state-file)
      - [Checking an HCL Configuration file](#2-checking-an-hcl-configuration-file)
-     - [Using with LocalStack for Development/Testing](#using-with-localstack-for-development-or-testing)
+     - [Using with LocalStack for Development/Testing](#3-using-with-localstack-for-development-or-testing)
        - [Testing with LocalStack (Detailed Walkthrough)](#detailed-walk-through-with-localstack)
 4. [Running Tests](#4-running-tests)
 5. [Design Decisions and Trade-offs](#5-design-decisions-and-trade-offs)
